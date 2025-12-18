@@ -28,21 +28,20 @@ public class SinkBuilding : BuildingBase
 
     void ProcessItem(CardPayload card)
     {
-        if (isIncinerator) return; // Just destroy
+        if (isIncinerator)
+        {
+            // Just destroy. No money.
+            // Optional: Spawn a little "Smoke" particle effect here later.
+            return;
+        }
 
-        // Economy Logic
-        float value = 0.1f; // Base for Blank
-
-        if (card.rank > 0) value += card.rank * 1.0f; // Value for ranks
-        if (card.suit != CardSuit.None) value *= 2.0f; // Multiplier for Suits
+        // Casino Floor Logic (Sell)
+        float value = 0.1f;
+        if (card.rank > 0) value += card.rank * 1.0f;
+        if (card.suit != CardSuit.None) value *= 2.0f;
 
         int payout = Mathf.CeilToInt(value * sellMultiplier);
-
-        if (ResourceManager.Instance != null)
-        {
-            ResourceManager.Instance.AddCredits(payout);
-            // Optional: Floating Text popup here later
-        }
+        if (ResourceManager.Instance != null) ResourceManager.Instance.AddCredits(payout);
     }
 
     // Sinks accept everything

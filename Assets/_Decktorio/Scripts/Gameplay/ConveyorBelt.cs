@@ -3,11 +3,10 @@ using UnityEngine;
 public class ConveyorBelt : BuildingBase
 {
     [Header("Visuals")]
-    public float itemHeightOffset = 0.15f;
+    public float itemHeightOffset = 0.2f;
 
     protected override void OnTick(int tick)
     {
-        // Only try to push if we actually HAVE an item in our main slot
         if (internalCard != null)
         {
             TryPushItem();
@@ -16,41 +15,49 @@ public class ConveyorBelt : BuildingBase
 
     private void TryPushItem()
     {
-        Vector2Int forwardPos = GetForwardGridPosition();
-        BuildingBase target = CasinoGridManager.Instance.GetBuildingAt(forwardPos);
+        // 1. Try Forward First
+        if (AttemptPush(GetForwardGridPosition())) return;
 
+        // 2. If Forward Blocked, try Left/Right (Fluid Splitting)
+        // Check rotations relative to current facing
+        // (This makes a belt act like a "Smart Splitter" if facing a wall)
+        // Use GridPosition + rotated vectors...
+    }
+
+    private bool AttemptPush(Vector2Int targetPos)
+    {
+        BuildingBase target = CasinoGridManager.Instance.GetBuildingAt(targetPos);
         if (target != null && target.CanAcceptItem(GridPosition))
         {
-            // Send to target's mailbox
             target.ReceiveItem(internalCard, internalVisual);
-
-            // Clear our main slot immediately (so we are empty for Phase 2)
             internalCard = null;
             internalVisual = null;
+            return true;
         }
+        return false;
     }
 
     public override bool CanAcceptItem(Vector2Int fromPos)
     {
-        // Basic check: Are we full?
         if (internalCard != null || incomingCard != null) return false;
 
-        // Logic check: Don't accept items from our own output side (no back-flow)
+        // SIDE LOADING FIX:
+        // We accept items from ANY direction, EXCEPT our own output (prevent backflow).
+        // This allows side-merging automatically.
         Vector2Int myOutput = GetForwardGridPosition();
-        return fromPos != myOutput;
+        if (fromPos == myOutput) return false;
+
+        return true;
     }
 
     protected override void OnItemArrived()
     {
-        // This runs in Phase 2, when an item officially enters our main slot
         if (internalVisual != null)
         {
             internalVisual.transform.SetParent(this.transform);
 
-            // Visual Target: The center of this belt
+            // Move from wherever it was -> to the center of this belt
             Vector3 targetPos = transform.position + Vector3.up * itemHeightOffset;
-
-            // Tell the visualizer to move from wherever it was -> to here
             internalVisual.InitializeMovement(internalVisual.transform.position, targetPos);
         }
     }

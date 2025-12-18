@@ -6,11 +6,14 @@ public abstract class BuildingBase : MonoBehaviour
     public BuildingDefinition Definition;
     public int RotationIndex { get; private set; }
 
-    // MAIN INVENTORY (Current State)
+    [Header("Debug")]
+    public bool showDebugLogs = false; // TOGGLE THIS IN INSPECTOR TO SEE LOGS
+
+    // MAIN INVENTORY
     protected CardPayload internalCard;
     protected ItemVisualizer internalVisual;
 
-    // MAILBOX (Next State Buffer)
+    // MAILBOX
     protected CardPayload incomingCard;
     protected ItemVisualizer incomingVisual;
 
@@ -51,14 +54,12 @@ public abstract class BuildingBase : MonoBehaviour
         return GridPosition + forwardDir;
     }
 
-    // --- THE TWO-PHASE TICK SYSTEM ---
     private void HandleTickSystem(int tick)
     {
         // Phase 1: Logic (Try to push output)
         OnTick(tick);
 
         // Phase 2: Commit (Accept incoming mail)
-        // This runs AFTER everyone has decided where to push
         if (incomingCard != null && internalCard == null)
         {
             internalCard = incomingCard;
@@ -67,24 +68,36 @@ public abstract class BuildingBase : MonoBehaviour
             incomingCard = null;
             incomingVisual = null;
 
-            // Trigger Visual Animation logic here
+            if (showDebugLogs) Debug.Log($"[{name} at {GridPosition}] Accepted item.");
+
             OnItemArrived();
         }
     }
 
-    protected abstract void OnTick(int tick); // Child classes implement this
-    protected virtual void OnItemArrived() { } // Optional hook
+    protected abstract void OnTick(int tick);
 
-    // --- RECEIVE LOGIC ---
+    // Helper for child classes to handle standard visual movement
+    protected virtual void OnItemArrived()
+    {
+        if (internalVisual != null)
+        {
+            internalVisual.transform.SetParent(this.transform);
+            // Default behavior: Move to center of tile
+            Vector3 center = transform.position + Vector3.up * 0.2f;
+            internalVisual.InitializeMovement(internalVisual.transform.position, center);
+        }
+    }
+
     public virtual bool CanAcceptItem(Vector2Int fromPos)
     {
-        // We can only accept if our main slot AND our mailbox are empty
-        return internalCard == null && incomingCard == null;
+        // Default: Accept if empty
+        bool canAccept = internalCard == null && incomingCard == null;
+        if (!canAccept && showDebugLogs) Debug.Log($"[{name}] Refused item from {fromPos} (Full)");
+        return canAccept;
     }
 
     public virtual void ReceiveItem(CardPayload item, ItemVisualizer visual)
     {
-        // Place in Mailbox. Do NOT put in internalCard yet.
         incomingCard = item;
         incomingVisual = visual;
     }

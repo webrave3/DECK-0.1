@@ -200,30 +200,49 @@ public class BuildingSystem : MonoBehaviour
 
     void UpdateDeletePreview(Vector2Int current)
     {
-        // For Deletion, we visualize a Red Box over the area
+        // 1. Calculate Line Direction & Length
         int dx = current.x - dragStartPos.x;
         int dy = current.y - dragStartPos.y;
 
-        // Line logic for consistency with belts
+        // Determine primary axis (Horizontal or Vertical)
         int count = Mathf.Max(Mathf.Abs(dx), Mathf.Abs(dy)) + 1;
         Vector2Int dir = (Mathf.Abs(dx) >= Mathf.Abs(dy)) ? new Vector2Int((int)Mathf.Sign(dx), 0) : new Vector2Int(0, (int)Mathf.Sign(dy));
         if (dir == Vector2Int.zero) dir = new Vector2Int(1, 0);
 
-        // Use NULL to signal "Generic Red Box" to the pool
+        // 2. Ensure Pool has enough generic "Delete Cubes" (pass null for generic)
         EnsureGhostPool(count, null);
 
+        // 3. Loop through the line
         for (int i = 0; i < count; i++)
         {
             Vector2Int pos = dragStartPos + (dir * i);
             GameObject g = dragGhosts[i];
 
-            // Set Position
-            g.transform.position = CasinoGridManager.Instance.GridToWorld(pos);
-            g.transform.rotation = Quaternion.identity;
-            g.SetActive(true);
+            // CHECK: Is there actually a building here?
+            BuildingBase target = CasinoGridManager.Instance.GetBuildingAt(pos);
 
-            // Force Red Color (Invalid)
-            SetGhostMaterial(g, false);
+            if (target != null)
+            {
+                // YES: Show the Red Box
+                g.transform.position = CasinoGridManager.Instance.GridToWorld(pos);
+                g.transform.rotation = Quaternion.identity;
+                g.SetActive(true);
+
+                // Force Red Color (false = Invalid/Red)
+                SetGhostMaterial(g, false);
+            }
+            else
+            {
+                // NO: Hide the preview for this specific tile
+                // This prevents "Deleting Nothing" visuals
+                g.SetActive(false);
+            }
+        }
+
+        // 4. Cleanup: Hide any extra ghosts in the pool that are beyond our current count
+        for (int i = count; i < dragGhosts.Count; i++)
+        {
+            dragGhosts[i].SetActive(false);
         }
     }
 
