@@ -6,28 +6,24 @@ public abstract class BuildingBase : MonoBehaviour
     public BuildingDefinition Definition;
     public int RotationIndex { get; private set; }
 
+    // MAIN INVENTORY (Current State)
     protected CardPayload internalCard;
-    protected int lastProcessedTick = -1; // Fix for cascading speed bug
+    protected ItemVisualizer internalVisual;
+
+    // MAILBOX (Next State Buffer)
+    protected CardPayload incomingCard;
+    protected ItemVisualizer incomingVisual;
 
     protected virtual void Start()
     {
         if (TickManager.Instance != null)
-            TickManager.Instance.OnTick += OnTickInternal;
+            TickManager.Instance.OnTick += HandleTickSystem;
     }
 
     protected virtual void OnDestroy()
     {
         if (TickManager.Instance != null)
-            TickManager.Instance.OnTick -= OnTickInternal;
-    }
-
-    private void OnTickInternal(int tick)
-    {
-        // Prevent double-updates in the same tick
-        if (lastProcessedTick == tick) return;
-
-        lastProcessedTick = tick;
-        HandleTick(tick);
+            TickManager.Instance.OnTick -= HandleTickSystem;
     }
 
     public void Setup(Vector2Int pos)
@@ -55,24 +51,43 @@ public abstract class BuildingBase : MonoBehaviour
         return GridPosition + forwardDir;
     }
 
-    // --- LOGIC METHODS ---
-    protected abstract void HandleTick(int tick);
+    // --- THE TWO-PHASE TICK SYSTEM ---
+    private void HandleTickSystem(int tick)
+    {
+        // Phase 1: Logic (Try to push output)
+        OnTick(tick);
 
-    public virtual bool CanAcceptItem(Vector2Int fromPos) { return false; }
+        // Phase 2: Commit (Accept incoming mail)
+        // This runs AFTER everyone has decided where to push
+        if (incomingCard != null && internalCard == null)
+        {
+            internalCard = incomingCard;
+            internalVisual = incomingVisual;
+
+            incomingCard = null;
+            incomingVisual = null;
+
+            // Trigger Visual Animation logic here
+            OnItemArrived();
+        }
+    }
+
+    protected abstract void OnTick(int tick); // Child classes implement this
+    protected virtual void OnItemArrived() { } // Optional hook
+
+    // --- RECEIVE LOGIC ---
+    public virtual bool CanAcceptItem(Vector2Int fromPos)
+    {
+        // We can only accept if our main slot AND our mailbox are empty
+        return internalCard == null && incomingCard == null;
+    }
 
     public virtual void ReceiveItem(CardPayload item, ItemVisualizer visual)
     {
-        // When receiving an item, we mark ourselves as "processed" for this tick
-        // so we don't immediately pass it on (preventing infinite speed)
-        // However, we access the current tick via the Manager
-        // (Use a simple workaround: If we receive, we wait for NEXT tick to push)
-        internalCard = item;
+        // Place in Mailbox. Do NOT put in internalCard yet.
+        incomingCard = item;
+        incomingVisual = visual;
     }
 
-    // --- PLACEMENT VALIDATION ---
-    // Override this in Unpacker to check for resources
-    public virtual bool CanBePlacedAt(Vector2Int gridPos)
-    {
-        return true; // Default: Can be placed anywhere valid
-    }
+    public virtual bool CanBePlacedAt(Vector2Int gridPos) => true;
 }

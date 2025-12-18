@@ -178,7 +178,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 51f2ace70e453294b8c1be9368523975, type: 2}
+  - {fileID: 2100000, guid: 8b8fa1db71848984581b6f1937bc5695, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -252,7 +252,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 0.2, z: 1}
+  m_LocalScale: {x: 2, y: 0.2, z: 2}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 7768497448624788699}
@@ -350,7 +350,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ConveyorBelt
   Definition: {fileID: 11400000, guid: 6b13dd0140942e2459d2dfb60478d8b1, type: 2}
-  visualAnchor: {fileID: 3801785986783688662}
+  itemHeightOffset: 0.15
 --- !u!1 &6967349144116830011
 GameObject:
   m_ObjectHideFlags: 0
@@ -418,7 +418,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 51f2ace70e453294b8c1be9368523975, type: 2}
+  - {fileID: 2100000, guid: 8b8fa1db71848984581b6f1937bc5695, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0

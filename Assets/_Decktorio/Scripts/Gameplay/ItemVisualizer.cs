@@ -6,25 +6,28 @@ public class ItemVisualizer : MonoBehaviour
     private Vector3 endPos;
     private bool isMoving = false;
 
-    // Called by the Belt when an item enters it
     public void InitializeMovement(Vector3 start, Vector3 end)
     {
         startPos = start;
         endPos = end;
         isMoving = true;
         transform.position = start;
+
+        // Instant rotation to face destination (prevents sideways sliding)
+        if (start != end)
+        {
+            transform.rotation = Quaternion.LookRotation(end - start);
+        }
     }
 
     private void Update()
     {
         if (!isMoving) return;
 
-        // Ask the TickManager "How far are we between ticks?" (0.0 to 1.0)
+        // Get interpolation (0.0 to 1.0)
         float percent = TickManager.Instance.GetInterpolationFactor();
 
-        // Smoothly slide to the destination
+        // Smooth slide
         transform.position = Vector3.Lerp(startPos, endPos, percent);
-
-        // Optional: Add a tiny arc or "wobble" here later for juice
     }
 }

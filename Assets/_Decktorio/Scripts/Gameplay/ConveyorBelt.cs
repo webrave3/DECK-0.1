@@ -3,13 +3,11 @@ using UnityEngine;
 public class ConveyorBelt : BuildingBase
 {
     [Header("Visuals")]
-    public Transform visualAnchor;
     public float itemHeightOffset = 0.15f;
 
-    private ItemVisualizer currentVisual;
-
-    protected override void HandleTick(int tick)
+    protected override void OnTick(int tick)
     {
+        // Only try to push if we actually HAVE an item in our main slot
         if (internalCard != null)
         {
             TryPushItem();
@@ -19,43 +17,41 @@ public class ConveyorBelt : BuildingBase
     private void TryPushItem()
     {
         Vector2Int forwardPos = GetForwardGridPosition();
-        BuildingBase targetBuilding = CasinoGridManager.Instance.GetBuildingAt(forwardPos);
+        BuildingBase target = CasinoGridManager.Instance.GetBuildingAt(forwardPos);
 
-        if (targetBuilding != null && targetBuilding.CanAcceptItem(GridPosition))
+        if (target != null && target.CanAcceptItem(GridPosition))
         {
-            // Move Data
-            targetBuilding.ReceiveItem(internalCard, currentVisual);
+            // Send to target's mailbox
+            target.ReceiveItem(internalCard, internalVisual);
 
+            // Clear our main slot immediately (so we are empty for Phase 2)
             internalCard = null;
-            currentVisual = null;
-        }
-    }
-
-    public override void ReceiveItem(CardPayload item, ItemVisualizer visual)
-    {
-        // Mark as processed so we don't push it again in this SAME tick
-        // (This fixes the "belt becomes faster the longer it is" bug)
-        lastProcessedTick = Time.frameCount; // Or use a specialized counter if frameCount is risky, but works for MVP
-
-        internalCard = item;
-        currentVisual = visual;
-
-        if (currentVisual != null)
-        {
-            currentVisual.transform.SetParent(this.transform);
-
-            // Calculate strictly local position to prevent "floating away"
-            Vector3 myCenter = transform.position + Vector3.up * itemHeightOffset;
-
-            // Start visual movement
-            currentVisual.InitializeMovement(currentVisual.transform.position, myCenter);
+            internalVisual = null;
         }
     }
 
     public override bool CanAcceptItem(Vector2Int fromPos)
     {
-        if (internalCard != null) return false;
+        // Basic check: Are we full?
+        if (internalCard != null || incomingCard != null) return false;
+
+        // Logic check: Don't accept items from our own output side (no back-flow)
         Vector2Int myOutput = GetForwardGridPosition();
         return fromPos != myOutput;
+    }
+
+    protected override void OnItemArrived()
+    {
+        // This runs in Phase 2, when an item officially enters our main slot
+        if (internalVisual != null)
+        {
+            internalVisual.transform.SetParent(this.transform);
+
+            // Visual Target: The center of this belt
+            Vector3 targetPos = transform.position + Vector3.up * itemHeightOffset;
+
+            // Tell the visualizer to move from wherever it was -> to here
+            internalVisual.InitializeMovement(internalVisual.transform.position, targetPos);
+        }
     }
 }

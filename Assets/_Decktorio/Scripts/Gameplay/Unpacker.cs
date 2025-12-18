@@ -7,17 +7,13 @@ public class Unpacker : BuildingBase
     public Transform outputAnchor;
 
     private float progress = 0;
-    private ItemVisualizer currentVisual;
 
-    // --- NEW CONSTRAINT ---
     public override bool CanBePlacedAt(Vector2Int gridPos)
     {
-        // Only allow placement if a Resource is underneath
         return CasinoGridManager.Instance.GetResourceAt(gridPos) != null;
     }
-    // ---------------------
 
-    protected override void HandleTick(int tick)
+    protected override void OnTick(int tick)
     {
         if (internalCard != null)
         {
@@ -43,10 +39,12 @@ public class Unpacker : BuildingBase
 
     void SpawnItem(SupplyDrop source)
     {
+        // Direct spawn into main inventory (since we created it, no travel time)
         internalCard = new CardPayload(source.rank, source.suit, 1);
+
         GameObject itemObj = Instantiate(source.itemPrefab, outputAnchor.position, Quaternion.identity);
-        currentVisual = itemObj.GetComponent<ItemVisualizer>();
-        currentVisual.transform.SetParent(this.transform);
+        internalVisual = itemObj.GetComponent<ItemVisualizer>();
+        internalVisual.transform.SetParent(this.transform);
     }
 
     void TryPushItem()
@@ -56,9 +54,9 @@ public class Unpacker : BuildingBase
 
         if (target != null && target.CanAcceptItem(GridPosition))
         {
-            target.ReceiveItem(internalCard, currentVisual);
+            target.ReceiveItem(internalCard, internalVisual);
             internalCard = null;
-            currentVisual = null;
+            internalVisual = null;
         }
     }
 }

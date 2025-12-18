@@ -10,11 +10,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fb2a1ec045c7c364a86089a07ac459b7, type: 3}
-  m_Name: Def_Conveyor
+  m_Name: Def_CasinoFloor
   m_EditorClassIdentifier: Assembly-CSharp::BuildingDefinition
-  buildingName: Conveyor Belt
-  prefab: {fileID: 5158119214476670704, guid: 97a684611ac826d4f8eeb14230eff9c4, type: 3}
+  buildingName: Casino Floor
+  prefab: {fileID: 6909013774422106192, guid: 6d73eb9e33a1aa1488710ddb985ee345, type: 3}
   width: 2
   height: 2
-  cost: 1
-  description: Moves items forward.
+  cost: 5
+  description: 

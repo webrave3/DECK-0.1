@@ -9,13 +9,16 @@ public class SupplyDrop : BuildingBase
 
     protected override void Start()
     {
-        // Auto-register ourselves to the Resource Grid on start
-        // This handles pre-placed crates in the scene
+        // We override Start to register ourselves as a Resource, 
+        // but we DON'T call base.Start() because we don't want to receive Ticks.
+        // This is an optimization (passive buildings shouldn't wake up every frame).
+
         Vector2Int pos = CasinoGridManager.Instance.WorldToGrid(transform.position);
         CasinoGridManager.Instance.RegisterResource(this, pos);
     }
 
-    protected override void HandleTick(int tick)
+    // We must implement this to satisfy the compiler, even if we don't use it.
+    protected override void OnTick(int tick)
     {
         // Passive. Does nothing.
     }

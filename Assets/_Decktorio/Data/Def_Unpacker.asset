@@ -12,9 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fb2a1ec045c7c364a86089a07ac459b7, type: 3}
   m_Name: Def_Unpacker
   m_EditorClassIdentifier: Assembly-CSharp::BuildingDefinition
-  buildingName: 
+  buildingName: Unpacker
   prefab: {fileID: 6847701902936027944, guid: f3997ba701a4ef346b3e5f089127ede8, type: 3}
-  width: 1
-  height: 1
-  cost: 10
+  width: 2
+  height: 2
+  cost: 1
   description: 
