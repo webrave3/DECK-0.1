@@ -1,18 +1,22 @@
 using UnityEngine;
 
-// This is a passive building that just exists on the map.
-// The Unpacker will look for this underneath itself.
 public class SupplyDrop : BuildingBase
 {
     [Header("Resource Settings")]
-    public CardPayload resourceType; // e.g., Blank Card
+    public GameObject itemPrefab; // The visual card to spawn
+    public CardSuit suit = CardSuit.Heart;
+    public int rank = 1;
+
+    protected override void Start()
+    {
+        // Auto-register ourselves to the Resource Grid on start
+        // This handles pre-placed crates in the scene
+        Vector2Int pos = CasinoGridManager.Instance.WorldToGrid(transform.position);
+        CasinoGridManager.Instance.RegisterResource(this, pos);
+    }
 
     protected override void HandleTick(int tick)
     {
-        // Supply Drops do nothing on their own. 
-        // They are just data containers for the Unpacker to read.
+        // Passive. Does nothing.
     }
-
-    // Supply drops cannot accept items
-    public override bool CanAcceptItem(Vector2Int fromPos) => false;
 }
