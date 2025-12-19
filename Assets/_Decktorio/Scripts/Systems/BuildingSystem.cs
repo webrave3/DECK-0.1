@@ -19,6 +19,7 @@ public class BuildingSystem : MonoBehaviour
     public int refundPercentage = 100;
 
     // --- STATE ---
+    public BuildingDefinition SelectedBuilding => selectedBuilding;
     private BuildingDefinition selectedBuilding;
     private List<SelectionManager.BuildingBlueprint> pasteClipboard;
 
@@ -31,14 +32,21 @@ public class BuildingSystem : MonoBehaviour
     private List<GameObject> dragGhosts = new List<GameObject>();
     private List<(Vector2Int pos, int rot)> currentDragPath = new List<(Vector2Int pos, int rot)>();
 
+    // FIX: Using Frame Count to prevent execution order issues
+    public int LastCancelFrame { get; private set; } = -1;
+
+    // Helper for SelectionManager
+    public bool IsBusyOrJustCancelled => IsBuildingOrPasteActive() || LastCancelFrame == Time.frameCount;
+
     // --- INPUT ---
     private Camera mainCam;
     private InputActionMap buildInput;
     private InputAction pointAction;
     private InputAction clickAction;
     private InputAction rotateAction;
-    private InputAction cancelAction;
-    private InputAction escapeAction;
+    private InputAction escapeAction; // Kept for ESC key
+    private InputAction pickerAction;
+    // Note: We will use Mouse.current for Right Click to sync perfectly with SelectionManager
 
     private void Awake()
     {
@@ -56,13 +64,12 @@ public class BuildingSystem : MonoBehaviour
         buildInput = new InputActionMap("Building");
         pointAction = buildInput.AddAction("Point", binding: "<Mouse>/position");
         clickAction = buildInput.AddAction("Click", binding: "<Mouse>/leftButton");
-        cancelAction = buildInput.AddAction("Cancel", binding: "<Mouse>/rightButton");
         rotateAction = buildInput.AddAction("Rotate", binding: "<Keyboard>/r");
         escapeAction = buildInput.AddAction("Escape", binding: "<Keyboard>/escape");
+        pickerAction = buildInput.AddAction("PickBuilding", binding: "<Keyboard>/t");
         buildInput.Enable();
     }
 
-    // Helper for SelectionManager to know if we are busy
     public bool IsBuildingOrPasteActive()
     {
         return selectedBuilding != null || (pasteClipboard != null && pasteClipboard.Count > 0);
@@ -71,7 +78,6 @@ public class BuildingSystem : MonoBehaviour
     public void SelectBuilding(BuildingDefinition def)
     {
         Deselect();
-        // Also clear selection manager selection
         if (SelectionManager.Instance) SelectionManager.Instance.DeselectAll();
 
         selectedBuilding = def;
@@ -99,22 +105,39 @@ public class BuildingSystem : MonoBehaviour
     {
         if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
 
+        // Picker Input
+        if (pickerAction.WasPressedThisFrame())
+        {
+            HandlePicker();
+        }
+
         Ray ray = mainCam.ScreenPointToRay(pointAction.ReadValue<Vector2>());
         bool hitSomething = Physics.Raycast(ray, out RaycastHit hit, 1000f, groundLayer | buildingLayer);
         Vector2Int currentGridPos = Vector2Int.zero;
         if (hitSomething) currentGridPos = CasinoGridManager.Instance.WorldToGrid(hit.point);
 
-        // Cancel
-        if (cancelAction.WasPressedThisFrame() || escapeAction.WasPressedThisFrame())
+        // Cancel Logic (Right Click OR Escape)
+        // FIX: Using Mouse.current directly to ensure it matches SelectionManager's input logic perfectly
+        bool rightClickPressed = Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame;
+        bool escapePressed = escapeAction.WasPressedThisFrame();
+
+        if (rightClickPressed || escapePressed)
         {
+            // 1. If dragging a line of buildings, cancel the drag but keep the ghost
             if (isDragging)
             {
                 ClearGhosts();
                 if (selectedBuilding != null) CreateSingleGhost();
                 return;
             }
-            Deselect();
-            return;
+
+            // 2. If holding a building/clipboard, cancel it
+            if (IsBuildingOrPasteActive())
+            {
+                LastCancelFrame = Time.frameCount; // Record frame BEFORE deselecting
+                Deselect();
+                return;
+            }
         }
 
         // PASTE MODE
@@ -146,6 +169,22 @@ public class BuildingSystem : MonoBehaviour
             else
             {
                 UpdateSingleGhost(currentGridPos);
+            }
+        }
+    }
+
+    void HandlePicker()
+    {
+        Ray ray = mainCam.ScreenPointToRay(pointAction.ReadValue<Vector2>());
+        if (Physics.Raycast(ray, out RaycastHit hit, 1000f, buildingLayer))
+        {
+            BuildingBase b = hit.collider.GetComponentInParent<BuildingBase>();
+            if (b != null && b.Definition != null)
+            {
+                SelectBuilding(b.Definition);
+                currentRotation = b.RotationIndex;
+                if (singleGhost != null)
+                    singleGhost.transform.rotation = Quaternion.Euler(0, currentRotation * 90, 0);
             }
         }
     }

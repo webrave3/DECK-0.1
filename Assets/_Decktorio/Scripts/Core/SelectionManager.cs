@@ -7,16 +7,23 @@ public class SelectionManager : MonoBehaviour
     public static SelectionManager Instance { get; private set; }
 
     [Header("UI References")]
-    public RectTransform selectionBoxUI; // Drag your UI Image here
+    public RectTransform selectionBoxUI;
     private Canvas parentCanvas;
 
     [Header("Settings")]
     public LayerMask buildingLayer;
+    public Color selectColor = Color.yellow;
+    public Color deleteColor = new Color(1f, 0.2f, 0.2f, 1f); // Red tint
 
-    // State
+    // --- STATE ---
     private Vector2 startMousePos;
-    private bool isSelecting;
+    private bool isDragging;
+    private bool isDeconstructMode; // True = Deleting, False = Selecting
+
+    // Selection Cache
     private List<BuildingBase> selectedBuildings = new List<BuildingBase>();
+    private BuildingBase[] sceneBuildingsCache;
+    private Dictionary<int, Color> originalColors = new Dictionary<int, Color>();
 
     // Copy/Paste Data
     private List<BuildingBlueprint> clipboard = new List<BuildingBlueprint>();
@@ -25,7 +32,6 @@ public class SelectionManager : MonoBehaviour
     private Mouse mouse;
     private Keyboard keyboard;
 
-    // FIX: Changed from 'private' to 'public' so BuildingSystem can see it
     public struct BuildingBlueprint
     {
         public BuildingDefinition definition;
@@ -36,7 +42,6 @@ public class SelectionManager : MonoBehaviour
     private void Awake()
     {
         Instance = this;
-        // Cache input devices safely
         mouse = Mouse.current;
         keyboard = Keyboard.current;
 
@@ -51,50 +56,87 @@ public class SelectionManager : MonoBehaviour
     {
         if (mouse == null || keyboard == null) return;
 
-        // 1. Handle Selection Input
-        if (mouse.leftButton.wasPressedThisFrame)
+        // CRITICAL FIX: Use the property that includes the LastCancelFrame check
+        if (BuildingSystem.Instance != null && BuildingSystem.Instance.IsBusyOrJustCancelled)
         {
-            // Check if we are hovering UI or if BuildingSystem is busy
-            if (BuildingSystem.Instance != null && BuildingSystem.Instance.IsBuildingOrPasteActive()) return;
-
-            startMousePos = mouse.position.ReadValue();
-            isSelecting = true;
-            if (selectionBoxUI) selectionBoxUI.gameObject.SetActive(true);
-
-            if (!keyboard.shiftKey.isPressed) DeselectAll();
+            return;
         }
 
-        if (isSelecting)
+        // 1. INPUT START (Only if NOT already dragging)
+        if (!isDragging)
         {
-            UpdateSelectionBox();
-
-            if (mouse.leftButton.wasReleasedThisFrame)
+            // Left Click -> Normal Selection
+            if (mouse.leftButton.wasPressedThisFrame)
             {
-                FinishSelection();
+                StartSelection(false);
+            }
+            // Right Click -> Deconstruct (Delete) Selection
+            else if (mouse.rightButton.wasPressedThisFrame)
+            {
+                StartSelection(true);
             }
         }
 
-        // 2. Handle Shortcuts
-        if (selectedBuildings.Count > 0)
+        // 2. INPUT DRAG & RELEASE
+        if (isDragging)
         {
-            // DELETE
+            UpdateSelectionBox();
+            UpdateHighlightPreview();
+
+            // Release Left Click (Confirm Selection)
+            if (!isDeconstructMode && mouse.leftButton.wasReleasedThisFrame)
+            {
+                FinishSelection();
+            }
+            // Release Right Click (Confirm Deletion)
+            else if (isDeconstructMode && mouse.rightButton.wasReleasedThisFrame)
+            {
+                FinishDeconstruction();
+            }
+        }
+
+        // 3. SHORTCUTS (Only when not dragging)
+        if (!isDragging && selectedBuildings.Count > 0)
+        {
+            // DELETE Key
             if (keyboard.deleteKey.wasPressedThisFrame)
             {
                 DeleteSelected();
             }
 
-            // COPY
+            // COPY (Ctrl + C)
             if (keyboard.ctrlKey.isPressed && keyboard.cKey.wasPressedThisFrame)
             {
                 CopySelection();
             }
         }
 
-        // PASTE
-        if (clipboard.Count > 0 && keyboard.ctrlKey.isPressed && keyboard.vKey.wasPressedThisFrame)
+        // PASTE (Ctrl + V)
+        if (!isDragging && clipboard.Count > 0 && keyboard.ctrlKey.isPressed && keyboard.vKey.wasPressedThisFrame)
         {
             PasteSelection();
         }
+    }
+
+    void StartSelection(bool deconstructMode)
+    {
+        if (!keyboard.shiftKey.isPressed || deconstructMode)
+        {
+            DeselectAll();
+        }
+
+        startMousePos = mouse.position.ReadValue();
+        isDragging = true;
+        isDeconstructMode = deconstructMode;
+
+        if (selectionBoxUI)
+        {
+            selectionBoxUI.gameObject.SetActive(true);
+            var img = selectionBoxUI.GetComponent<UnityEngine.UI.Image>();
+            if (img) img.color = deconstructMode ? new Color(1, 0, 0, 0.2f) : new Color(0, 1, 1, 0.2f);
+        }
+
+        sceneBuildingsCache = FindObjectsByType<BuildingBase>(FindObjectsSortMode.None);
     }
 
     void UpdateSelectionBox()
@@ -102,7 +144,6 @@ public class SelectionManager : MonoBehaviour
         if (selectionBoxUI == null) return;
 
         Vector2 currentPos = mouse.position.ReadValue();
-
         float width = currentPos.x - startMousePos.x;
         float height = currentPos.y - startMousePos.y;
 
@@ -110,64 +151,114 @@ public class SelectionManager : MonoBehaviour
         selectionBoxUI.anchoredPosition = startMousePos + new Vector2(width / 2, height / 2);
     }
 
-    void FinishSelection()
+    void UpdateHighlightPreview()
     {
-        isSelecting = false;
-        if (selectionBoxUI) selectionBoxUI.gameObject.SetActive(false);
+        HashSet<BuildingBase> currentFrameSelection = new HashSet<BuildingBase>();
 
-        // Handle Single Click vs Drag
-        if (selectionBoxUI != null && selectionBoxUI.sizeDelta.magnitude < 5f)
+        Vector2 min = Vector2.Min(startMousePos, mouse.position.ReadValue());
+        Vector2 max = Vector2.Max(startMousePos, mouse.position.ReadValue());
+        bool isClick = (max - min).magnitude < 5f;
+
+        if (isClick)
         {
             Ray ray = Camera.main.ScreenPointToRay(mouse.position.ReadValue());
             if (Physics.Raycast(ray, out RaycastHit hit, 1000f, buildingLayer))
             {
                 BuildingBase b = hit.collider.GetComponentInParent<BuildingBase>();
-                if (b != null) HighlightBuilding(b);
+                if (b != null) currentFrameSelection.Add(b);
             }
-            return;
+        }
+        else if (sceneBuildingsCache != null)
+        {
+            foreach (var building in sceneBuildingsCache)
+            {
+                if (building == null) continue;
+                Vector3 screenPos = Camera.main.WorldToScreenPoint(building.transform.position);
+                if (screenPos.x > min.x && screenPos.x < max.x && screenPos.y > min.y && screenPos.y < max.y)
+                {
+                    currentFrameSelection.Add(building);
+                }
+            }
         }
 
-        // Find all buildings in Screen Rect
-        // Optimization: In a huge game, use a Spatial Grid. For now, FindObjects is okay or use GridManager list.
-        foreach (var building in FindObjectsOfType<BuildingBase>())
+        // Logic for Highlight / Restore
+
+        // 1. Un-highlight items that are NO LONGER in the selection
+        foreach (var b in selectedBuildings)
         {
-            Vector3 screenPos = Camera.main.WorldToScreenPoint(building.transform.position);
-
-            // Check bounds
-            float minX = Mathf.Min(startMousePos.x, mouse.position.ReadValue().x);
-            float maxX = Mathf.Max(startMousePos.x, mouse.position.ReadValue().x);
-            float minY = Mathf.Min(startMousePos.y, mouse.position.ReadValue().y);
-            float maxY = Mathf.Max(startMousePos.y, mouse.position.ReadValue().y);
-
-            if (screenPos.x > minX && screenPos.x < maxX && screenPos.y > minY && screenPos.y < maxY)
+            if (b != null && !currentFrameSelection.Contains(b))
             {
-                HighlightBuilding(building);
+                RestoreBuildingColor(b);
+            }
+        }
+
+        // 2. Highlight items that are NEWLY in the selection
+        foreach (var b in currentFrameSelection)
+        {
+            if (!selectedBuildings.Contains(b))
+            {
+                SaveAndTintBuilding(b, isDeconstructMode ? deleteColor : selectColor);
+            }
+        }
+
+        // 3. Update the list
+        selectedBuildings = new List<BuildingBase>(currentFrameSelection);
+    }
+
+    void SaveAndTintBuilding(BuildingBase b, Color c)
+    {
+        if (b == null) return;
+        var r = b.GetComponentInChildren<Renderer>();
+        if (r)
+        {
+            int id = r.GetInstanceID();
+            if (!originalColors.ContainsKey(id))
+            {
+                originalColors[id] = r.material.color;
+            }
+            r.material.color = c;
+        }
+    }
+
+    void RestoreBuildingColor(BuildingBase b)
+    {
+        if (b == null) return;
+        var r = b.GetComponentInChildren<Renderer>();
+        if (r)
+        {
+            int id = r.GetInstanceID();
+            if (originalColors.TryGetValue(id, out Color original))
+            {
+                r.material.color = original;
+                originalColors.Remove(id);
             }
         }
     }
 
-    void HighlightBuilding(BuildingBase b)
+    void FinishSelection()
     {
-        if (!selectedBuildings.Contains(b))
-        {
-            selectedBuildings.Add(b);
-            // Visual Feedback: Tint Yellow
-            var r = b.GetComponentInChildren<Renderer>();
-            if (r) r.material.color = Color.yellow;
-        }
+        isDragging = false;
+        sceneBuildingsCache = null;
+        if (selectionBoxUI) selectionBoxUI.gameObject.SetActive(false);
+    }
+
+    void FinishDeconstruction()
+    {
+        isDragging = false;
+        sceneBuildingsCache = null;
+        if (selectionBoxUI) selectionBoxUI.gameObject.SetActive(false);
+
+        DeleteSelected();
     }
 
     public void DeselectAll()
     {
         foreach (var b in selectedBuildings)
         {
-            if (b != null)
-            {
-                var r = b.GetComponentInChildren<Renderer>();
-                if (r) r.material.color = Color.white; // Reset to white (or original color)
-            }
+            RestoreBuildingColor(b);
         }
         selectedBuildings.Clear();
+        originalColors.Clear();
     }
 
     void DeleteSelected()
@@ -178,6 +269,7 @@ public class SelectionManager : MonoBehaviour
                 CasinoGridManager.Instance.RemoveBuilding(b.GridPosition);
         }
         selectedBuildings.Clear();
+        originalColors.Clear();
     }
 
     void CopySelection()
@@ -185,7 +277,6 @@ public class SelectionManager : MonoBehaviour
         clipboard.Clear();
         if (selectedBuildings.Count == 0) return;
 
-        // Pivot is the first selected object
         Vector2Int pivot = selectedBuildings[0].GridPosition;
 
         foreach (var b in selectedBuildings)
