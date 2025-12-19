@@ -1,58 +1,64 @@
 using UnityEngine;
-using System.Collections.Generic;
 
 public class Splitter : BuildingBase
 {
+    // 0 = Forward, 1 = Left, 2 = Right
     private int outputIndex = 0;
 
     protected override void OnTick(int tick)
     {
         if (internalCard != null)
         {
-            TryDistributeItem();
+            HandleSplit();
         }
     }
 
-    private void TryDistributeItem()
+    private void HandleSplit()
     {
-        // 1. Gather all connected belts
-        List<Vector2Int> validTargets = new List<Vector2Int>();
-
-        // Check Front, Left, Right
-        AddIfValid(GetForwardGridPosition(), validTargets);
-        AddIfValid(GetLeftGridPosition(), validTargets);
-        AddIfValid(GetRightGridPosition(), validTargets);
-
-        // If nowhere to go, stop
-        if (validTargets.Count == 0) return;
-
-        // 2. Round-Robin Push
-        int attempts = 0;
-
-        while (attempts < validTargets.Count)
+        // Try up to 3 ports to find a free one
+        for (int i = 0; i < 3; i++)
         {
-            // Cycle through available targets
-            int index = outputIndex % validTargets.Count;
-            Vector2Int targetPos = validTargets[index];
+            Vector2Int targetPos = Vector2Int.zero;
+            string debugDir = "";
 
-            if (AttemptPush(targetPos))
+            // Determine direction based on current round-robin index
+            switch (outputIndex)
             {
-                outputIndex++; // Move to next for next time
-                break;
+                case 0: // Forward
+                    targetPos = GetForwardGridPosition();
+                    debugDir = "Forward";
+                    break;
+                case 1: // Left
+                    targetPos = GetLeftGridPosition();
+                    debugDir = "Left";
+                    break;
+                case 2: // Right
+                    targetPos = GetRightGridPosition();
+                    debugDir = "Right";
+                    break;
             }
 
-            // If that target was full, try the next one immediately
-            outputIndex++;
-            attempts++;
-        }
-    }
+            // Attempt to push
+            if (AttemptPush(targetPos))
+            {
+                if (showDebugLogs) GameLogger.Log($"Splitter: Sent {debugDir}");
 
-    private void AddIfValid(Vector2Int pos, List<Vector2Int> list)
-    {
-        BuildingBase b = CasinoGridManager.Instance.GetBuildingAt(pos);
-        if (b != null)
-        {
-            list.Add(pos);
+                // Cycle to next port for the NEXT item
+                outputIndex = (outputIndex + 1) % 3;
+                return;
+            }
+            else
+            {
+                // If blocked, temporarily try the next port in this same tick
+                // But do NOT update outputIndex permanently, so we maintain order logic
+                // (Or do we? Simple splitters usually cycle index only on success.
+                //  Standard logic: If index 0 blocked, try 1. If 1 success, next time try 2.)
+
+                int tempIndex = (outputIndex + 1) % 3;
+
+                // Advance locally to try next loop iteration
+                outputIndex = tempIndex;
+            }
         }
     }
 
@@ -69,19 +75,30 @@ public class Splitter : BuildingBase
         return false;
     }
 
+    protected override void OnItemArrived()
+    {
+        if (internalVisual != null)
+        {
+            internalVisual.transform.SetParent(this.transform);
+            // Move to center
+            float duration = TickManager.Instance.tickRate;
+            internalVisual.InitializeMovement(transform.position + Vector3.up * 0.2f, duration);
+        }
+    }
+
     // --- Helpers ---
     private Vector2Int GetLeftGridPosition()
     {
         int idx = (RotationIndex + 3) % 4;
         return GridPosition + GetDirFromIndex(idx);
     }
+
     private Vector2Int GetRightGridPosition()
     {
         int idx = (RotationIndex + 1) % 4;
         return GridPosition + GetDirFromIndex(idx);
     }
 
-    // Helper duplicated to avoid dependency
     private Vector2Int GetDirFromIndex(int index)
     {
         switch (index)

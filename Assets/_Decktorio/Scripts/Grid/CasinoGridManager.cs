@@ -10,7 +10,7 @@ public class CasinoGridManager : MonoBehaviour
     public float cellSize = 1f;
 
     [Header("Debug")]
-    public bool sandboxMode = true; // Set TRUE to ignore locked areas
+    public bool sandboxMode = true;
 
     private BuildingBase[,] grid;
     private SupplyDrop[,] resourceGrid;
@@ -39,27 +39,44 @@ public class CasinoGridManager : MonoBehaviour
     public void UnlockArea(int startX, int startY, int width, int height)
     {
         for (int x = startX; x < startX + width; x++)
-        {
             for (int y = startY; y < startY + height; y++)
-            {
                 if (IsValidCoord(x, y)) unlockedPlots[x, y] = true;
-            }
-        }
     }
 
-    public bool IsBuildable(Vector2Int pos)
+    // --- UPDATED CHECKS ---
+
+    public bool IsValidCoord(int x, int y)
+    {
+        return x >= 0 && y >= 0 && x < mapWidth && y < mapHeight;
+    }
+
+    public bool IsUnlocked(Vector2Int pos)
     {
         if (!IsValidCoord(pos.x, pos.y)) return false;
-
-        // Sandbox check
-        if (!sandboxMode && !unlockedPlots[pos.x, pos.y]) return false;
-
-        return grid[pos.x, pos.y] == null;
+        return sandboxMode || unlockedPlots[pos.x, pos.y];
     }
+
+    public bool IsOccupied(Vector2Int pos)
+    {
+        if (!IsValidCoord(pos.x, pos.y)) return false;
+        return grid[pos.x, pos.y] != null;
+    }
+
+    // Standard check (Strict)
+    public bool IsBuildable(Vector2Int pos)
+    {
+        return IsUnlocked(pos) && !IsOccupied(pos);
+    }
+
+    // --- CRUD ---
 
     public void PlaceBuilding(BuildingBase building, Vector2Int pos)
     {
-        if (!IsBuildable(pos)) return;
+        if (!IsValidCoord(pos.x, pos.y)) return;
+
+        // Auto-remove old if overwriting (Safety net)
+        if (grid[pos.x, pos.y] != null) RemoveBuilding(pos);
+
         grid[pos.x, pos.y] = building;
         building.Setup(pos);
     }
@@ -74,13 +91,11 @@ public class CasinoGridManager : MonoBehaviour
     {
         if (IsValidCoord(pos.x, pos.y) && grid[pos.x, pos.y] != null)
         {
-            // Destroy the GameObject
             Destroy(grid[pos.x, pos.y].gameObject);
-
-            // Clear the Grid Slot
             grid[pos.x, pos.y] = null;
         }
     }
+
     public void RegisterResource(SupplyDrop drop, Vector2Int pos)
     {
         if (IsValidCoord(pos.x, pos.y))
@@ -106,27 +121,16 @@ public class CasinoGridManager : MonoBehaviour
         return new Vector3(gridPos.x * cellSize + (cellSize / 2f), 0, gridPos.y * cellSize + (cellSize / 2f));
     }
 
-    private bool IsValidCoord(int x, int y)
-    {
-        return x >= 0 && y >= 0 && x < mapWidth && y < mapHeight;
-    }
-
-    private void OnValidate()
-    {
-        if (Application.isPlaying) return;
-        InitializeGridData();
-    }
+    private void OnValidate() { if (!Application.isPlaying) InitializeGridData(); }
 
     private void OnDrawGizmos()
     {
         if (unlockedPlots == null) return;
         Gizmos.color = new Color(0, 1, 0, 0.3f);
-
         for (int x = 0; x < mapWidth; x++)
         {
             for (int y = 0; y < mapHeight; y++)
             {
-                // Only draw if within bounds and unlocked
                 if (x < unlockedPlots.GetLength(0) && y < unlockedPlots.GetLength(1) && unlockedPlots[x, y])
                 {
                     Vector3 center = new Vector3(x * cellSize + (cellSize / 2f), 0.1f, y * cellSize + (cellSize / 2f));

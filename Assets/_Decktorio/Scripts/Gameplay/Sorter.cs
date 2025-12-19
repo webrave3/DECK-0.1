@@ -27,7 +27,10 @@ public class Sorter : BuildingBase
         Vector2Int targetPos = isMatch ? GetLeftGridPosition() : GetForwardGridPosition();
 
         // 3. Attempt Push
-        AttemptPush(targetPos);
+        if (AttemptPush(targetPos))
+        {
+            if (showDebugLogs) GameLogger.Log($"Sorter: Sent item {(isMatch ? "Left" : "Forward")}");
+        }
     }
 
     private bool AttemptPush(Vector2Int targetPos)
@@ -51,7 +54,10 @@ public class Sorter : BuildingBase
         {
             internalVisual.transform.SetParent(this.transform);
             Vector3 targetPos = transform.position + Vector3.up * itemHeightOffset;
-            internalVisual.InitializeMovement(internalVisual.transform.position, targetPos);
+
+            // Move over one tick duration
+            float duration = TickManager.Instance.tickRate;
+            internalVisual.InitializeMovement(targetPos, duration);
         }
     }
 

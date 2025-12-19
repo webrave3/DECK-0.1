@@ -62,13 +62,16 @@ public class Assembler : BuildingBase
         buffer.Add(item);
         visualBuffer.Add(visual);
 
-        // Visuals: Stack them on the table?
+        // Visuals: Stack them on the table
         visual.transform.SetParent(this.transform);
 
         // Simple visual arrangement: Spread them out slightly
         float offset = (buffer.Count - 1) * 0.2f;
         Vector3 targetPos = transform.position + Vector3.up * 0.5f + Vector3.right * (offset - 0.4f);
-        visual.InitializeMovement(visual.transform.position, targetPos);
+
+        // Move over one tick duration
+        float duration = TickManager.Instance.tickRate;
+        visual.InitializeMovement(targetPos, duration);
     }
 
     private void EvaluateAndStart()
@@ -77,28 +80,27 @@ public class Assembler : BuildingBase
 
         if (type > PokerHandType.HighCard) // Require at least a Pair?
         {
-            if (showDebugLogs) Debug.Log($"[Assembler] Valid Hand: {type}");
+            GameLogger.Log($"[Assembler] Valid Hand: {type}");
             isCrafting = true;
             craftTimer = 0f;
         }
         else
         {
             // BAD HAND LOGIC
-            // Option A: Jam the machine (Player must delete it)
-            // Option B: Trash the cards and restart
-            if (showDebugLogs) Debug.Log("[Assembler] Garbage Hand! Discarding...");
+            GameLogger.Log("[Assembler] Garbage Hand! Discarding...");
             ClearBuffer(); // Auto-trash for now to keep game flowing
         }
     }
 
     private void CompleteCraft()
     {
-        // calculate value
+        // Calculate value
         int value = PokerEvaluator.GetHandValue(PokerEvaluator.Evaluate(buffer));
 
         // Create the "Output" item
         // We reuse the CardPayload class but maybe treat Rank as Value?
         resultProduct = new CardPayload(value, CardSuit.None, 1);
+        GameLogger.Log($"[Assembler] Crafted value: {value}");
 
         // Clear inputs
         ClearBuffer();

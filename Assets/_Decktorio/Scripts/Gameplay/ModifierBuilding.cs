@@ -27,8 +27,6 @@ public class ModifierBuilding : BuildingBase
         if (internalCard != null)
         {
             processTimer++;
-            // Optional: Log progress
-            // if (showDebugLogs && processTimer % 5 == 0) Debug.Log($"Processing... {processTimer}");
 
             if (processTimer >= processingTime)
             {
@@ -44,7 +42,10 @@ public class ModifierBuilding : BuildingBase
             internalVisual.transform.SetParent(this.transform);
             // Move visual to center
             Vector3 targetPos = transform.position + Vector3.up * 0.5f;
-            internalVisual.InitializeMovement(internalVisual.transform.position, targetPos);
+
+            // Move over one tick duration
+            float duration = TickManager.Instance.tickRate;
+            internalVisual.InitializeMovement(targetPos, duration);
         }
     }
 
@@ -67,9 +68,10 @@ public class ModifierBuilding : BuildingBase
         // 2. Visual Update (Refresh the look of the card)
         if (internalVisual != null)
         {
-            // If you added the SetVisuals method to ItemVisualizer from previous steps:
             internalVisual.SetVisuals(card);
         }
+
+        GameLogger.Log($"Modifier: Card changed to {card.suit} {card.rank}");
     }
 
     void TryPushItem()

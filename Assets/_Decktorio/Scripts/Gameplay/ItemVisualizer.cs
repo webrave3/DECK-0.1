@@ -3,7 +3,9 @@ using UnityEngine;
 public class ItemVisualizer : MonoBehaviour
 {
     private Vector3 startPos;
-    private Vector3 endPos;
+    private Vector3 targetPos;
+    private float moveProgress = 0f;
+    private float moveDuration = 1f; // Will be set by belt speed
     private bool isMoving = false;
 
     // References
@@ -19,7 +21,7 @@ public class ItemVisualizer : MonoBehaviour
     {
         if (meshRenderer == null) return;
 
-        // Temporary Debug Coloring
+        // Visual debug colors based on suit
         switch (card.suit)
         {
             case CardSuit.Heart:
@@ -36,33 +38,44 @@ public class ItemVisualizer : MonoBehaviour
         }
     }
 
-    public void InitializeMovement(Vector3 start, Vector3 end)
+    /// <summary>
+    /// Starts moving the item from its CURRENT position to the new target.
+    /// </summary>
+    public void InitializeMovement(Vector3 end, float duration)
     {
-        startPos = start;
-        endPos = end;
+        // Start from wherever we are right now to prevent teleporting
+        startPos = transform.position;
+        targetPos = end;
+        moveDuration = duration;
+        moveProgress = 0f;
         isMoving = true;
         gameObject.SetActive(true);
 
-        if (start != end)
+        // Face the direction of travel
+        if (startPos != targetPos)
         {
-            transform.rotation = Quaternion.LookRotation(end - start);
+            transform.rotation = Quaternion.LookRotation(targetPos - startPos);
         }
     }
 
     private void Update()
     {
-        if (TickManager.Instance == null) return;
+        if (!isMoving || TickManager.Instance == null) return;
 
-        if (isMoving)
+        // Calculate speed based on tick rate so it matches the game loop
+        float speedMultiplier = 1f / TickManager.Instance.tickRate;
+        float dt = Time.deltaTime * speedMultiplier;
+
+        moveProgress += dt;
+        float t = Mathf.Clamp01(moveProgress);
+
+        // Smooth Lerp
+        transform.position = Vector3.Lerp(startPos, targetPos, t);
+
+        if (t >= 1.0f)
         {
-            float percent = TickManager.Instance.GetInterpolationFactor();
-            transform.position = Vector3.Lerp(startPos, endPos, percent);
-
-            if (percent >= 1.0f)
-            {
-                isMoving = false;
-                transform.position = endPos;
-            }
+            isMoving = false;
+            transform.position = targetPos; // Snap to exact end to avoid drift
         }
     }
 }

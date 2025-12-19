@@ -9,32 +9,41 @@ public class BuildingSystem : MonoBehaviour
 
     [Header("Settings")]
     public LayerMask groundLayer = 1;
-    public Material validMat;
-    public Material invalidMat; // Red Transparent Material
+    public LayerMask buildingLayer = 1;
+
+    [Header("Visuals")]
+    public Color validColor = new Color(0, 1, 0, 0.5f);
+    public Color invalidColor = new Color(1, 0, 0, 0.5f);
 
     [Header("Economy")]
     public int refundPercentage = 100;
 
-    // State
+    // --- STATE ---
     private BuildingDefinition selectedBuilding;
+    private List<SelectionManager.BuildingBlueprint> pasteClipboard;
+
     private int currentRotation = 0;
     private GameObject singleGhost;
 
-    // Dragging Logic
     private bool isDragging = false;
-    private bool isDeleting = false;
     private Vector2Int dragStartPos;
-    private List<GameObject> dragGhosts = new List<GameObject>();
 
-    // Input
+    private List<GameObject> dragGhosts = new List<GameObject>();
+    private List<(Vector2Int pos, int rot)> currentDragPath = new List<(Vector2Int pos, int rot)>();
+
+    // --- INPUT ---
     private Camera mainCam;
     private InputActionMap buildInput;
     private InputAction pointAction;
-    private InputAction clickAction; // Left Click
+    private InputAction clickAction;
     private InputAction rotateAction;
-    private InputAction cancelAction; // Right Click
+    private InputAction cancelAction;
+    private InputAction escapeAction;
 
-    private void Awake() { Instance = this; }
+    private void Awake()
+    {
+        Instance = this;
+    }
 
     private void Start()
     {
@@ -49,85 +58,78 @@ public class BuildingSystem : MonoBehaviour
         clickAction = buildInput.AddAction("Click", binding: "<Mouse>/leftButton");
         cancelAction = buildInput.AddAction("Cancel", binding: "<Mouse>/rightButton");
         rotateAction = buildInput.AddAction("Rotate", binding: "<Keyboard>/r");
-
+        escapeAction = buildInput.AddAction("Escape", binding: "<Keyboard>/escape");
         buildInput.Enable();
+    }
+
+    // Helper for SelectionManager to know if we are busy
+    public bool IsBuildingOrPasteActive()
+    {
+        return selectedBuilding != null || (pasteClipboard != null && pasteClipboard.Count > 0);
     }
 
     public void SelectBuilding(BuildingDefinition def)
     {
+        Deselect();
+        // Also clear selection manager selection
+        if (SelectionManager.Instance) SelectionManager.Instance.DeselectAll();
+
         selectedBuilding = def;
-        ClearGhosts();
         CreateSingleGhost();
+    }
+
+    public void StartPasteMode(List<SelectionManager.BuildingBlueprint> clipboard)
+    {
+        Deselect();
+        if (SelectionManager.Instance) SelectionManager.Instance.DeselectAll();
+
+        pasteClipboard = new List<SelectionManager.BuildingBlueprint>(clipboard);
     }
 
     public void Deselect()
     {
         selectedBuilding = null;
+        pasteClipboard = null;
         ClearGhosts();
     }
 
-    private void ClearGhosts()
-    {
-        if (singleGhost != null) { Destroy(singleGhost); singleGhost = null; }
-        foreach (var g in dragGhosts) if (g != null) Destroy(g);
-        dragGhosts.Clear();
-        isDragging = false;
-        isDeleting = false;
-    }
+    // --- UPDATE LOOP ---
 
     private void Update()
     {
-        // 1. Raycast
-        Ray ray = mainCam.ScreenPointToRay(pointAction.ReadValue<Vector2>());
-        bool hitGround = Physics.Raycast(ray, out RaycastHit hit, 1000f, groundLayer);
-        Vector2Int currentGridPos = Vector2Int.zero;
-        if (hitGround) currentGridPos = CasinoGridManager.Instance.WorldToGrid(hit.point);
-
         if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
 
-        // --- GLOBAL CANCEL ---
-        // If Deleting -> Left Click Cancels
-        if (isDeleting && clickAction.WasPressedThisFrame())
+        Ray ray = mainCam.ScreenPointToRay(pointAction.ReadValue<Vector2>());
+        bool hitSomething = Physics.Raycast(ray, out RaycastHit hit, 1000f, groundLayer | buildingLayer);
+        Vector2Int currentGridPos = Vector2Int.zero;
+        if (hitSomething) currentGridPos = CasinoGridManager.Instance.WorldToGrid(hit.point);
+
+        // Cancel
+        if (cancelAction.WasPressedThisFrame() || escapeAction.WasPressedThisFrame())
         {
-            ClearGhosts();
-            return;
-        }
-        // If Building -> Right Click Cancels
-        if (selectedBuilding != null && cancelAction.WasPressedThisFrame() && !isDragging)
-        {
+            if (isDragging)
+            {
+                ClearGhosts();
+                if (selectedBuilding != null) CreateSingleGhost();
+                return;
+            }
             Deselect();
             return;
         }
 
-        // --- DELETE MODE (Right Click Hold on empty space) ---
-        if (selectedBuilding == null)
+        // PASTE MODE
+        if (pasteClipboard != null && pasteClipboard.Count > 0 && hitSomething)
         {
-            if (cancelAction.WasPressedThisFrame() && hitGround)
-            {
-                isDragging = true;
-                isDeleting = true;
-                dragStartPos = currentGridPos;
-            }
-
-            if (isDeleting)
-            {
-                UpdateDeletePreview(currentGridPos);
-
-                if (cancelAction.WasReleasedThisFrame())
-                {
-                    ConfirmDeleteDrag();
-                }
-            }
+            if (rotateAction.WasPressedThisFrame()) RotateClipboard();
+            UpdatePastePreview(currentGridPos);
+            if (clickAction.WasPressedThisFrame()) ConfirmPaste(currentGridPos);
             return;
         }
 
-        // --- BUILD MODE (Left Click) ---
-        if (selectedBuilding != null && hitGround)
+        // BUILD MODE
+        if (selectedBuilding != null && hitSomething)
         {
-            if (rotateAction.WasPressedThisFrame())
-            {
-                currentRotation = (currentRotation + 1) % 4;
-            }
+            if (rotateAction.WasPressedThisFrame()) currentRotation = (currentRotation + 1) % 4;
 
             if (clickAction.WasPressedThisFrame())
             {
@@ -148,7 +150,7 @@ public class BuildingSystem : MonoBehaviour
         }
     }
 
-    // --- VISUAL METHODS ---
+    // --- GHOST & LOGIC METHODS ---
 
     void CreateSingleGhost()
     {
@@ -165,221 +167,312 @@ public class BuildingSystem : MonoBehaviour
         singleGhost.transform.rotation = Quaternion.Euler(0, currentRotation * 90, 0);
         singleGhost.SetActive(true);
 
-        BuildingBase logic = selectedBuilding.prefab.GetComponent<BuildingBase>();
-        bool valid = CasinoGridManager.Instance.IsBuildable(pos) && logic.CanBePlacedAt(pos);
+        BuildingBase logic = singleGhost.GetComponent<BuildingBase>();
+        bool valid = IsValidPlacement(pos, logic);
         SetGhostMaterial(singleGhost, valid);
+
+        UpdateGhostAppearance(singleGhost, 0, pos, currentRotation);
     }
 
     void UpdateDragPreview(Vector2Int current)
     {
-        // 1. Calculate Drag Vector
-        int dx = current.x - dragStartPos.x;
-        int dy = current.y - dragStartPos.y;
-        Vector2Int dir = (Mathf.Abs(dx) >= Mathf.Abs(dy)) ? new Vector2Int((int)Mathf.Sign(dx), 0) : new Vector2Int(0, (int)Mathf.Sign(dy));
-        if (dir == Vector2Int.zero) dir = new Vector2Int(1, 0);
+        currentDragPath = GeneratePath(dragStartPos, current);
+        EnsureGhostPool(currentDragPath.Count);
 
-        // 2. Set Rotation based on Drag Direction
-        if (dir.x > 0) currentRotation = 1;      // East
-        else if (dir.x < 0) currentRotation = 3; // West
-        else if (dir.y > 0) currentRotation = 0; // North
-        else if (dir.y < 0) currentRotation = 2; // South
-
-        // 3. Smart Start Logic
-        // Check if there is already a building at the start position
-        bool startOccupied = !CasinoGridManager.Instance.IsBuildable(dragStartPos);
-        int startIndex = startOccupied ? 1 : 0; // Skip the first tile if occupied (branching mode)
-
-        int dragLength = Mathf.Max(Mathf.Abs(dx), Mathf.Abs(dy)) + 1;
-
-        EnsureGhostPool(dragLength, selectedBuilding.prefab);
-
-        for (int i = 0; i < dragLength; i++)
+        for (int i = 0; i < currentDragPath.Count; i++)
         {
-            // Skip the start position if we are branching
-            if (i < startIndex)
-            {
-                dragGhosts[i].SetActive(false);
-                continue;
-            }
-
-            Vector2Int pos = dragStartPos + (dir * i);
-            dragGhosts[i].transform.position = CasinoGridManager.Instance.GridToWorld(pos);
-            dragGhosts[i].transform.rotation = Quaternion.Euler(0, currentRotation * 90, 0);
-            dragGhosts[i].SetActive(true);
-
-            bool valid = CasinoGridManager.Instance.IsBuildable(pos);
-            SetGhostMaterial(dragGhosts[i], valid);
-
-            // Fix: ensure ghost mesh is active
-            ResetGhostVisuals(dragGhosts[i]);
-        }
-
-        // Hide unused
-        for (int i = dragLength; i < dragGhosts.Count; i++) dragGhosts[i].SetActive(false);
-    }
-
-    void ResetGhostVisuals(GameObject ghost)
-    {
-        // Assuming ghost hierarchy is: Root -> Visual_Straight, Visual_Corner_Left...
-        Transform visualStraight = ghost.transform.Find("Visual_Straight");
-        Transform visualCL = ghost.transform.Find("Visual_Corner_Left");
-        Transform visualCR = ghost.transform.Find("Visual_Corner_Right");
-
-        if (visualStraight) visualStraight.gameObject.SetActive(true);
-        if (visualCL) visualCL.gameObject.SetActive(false);
-        if (visualCR) visualCR.gameObject.SetActive(false);
-    }
-
-    void UpdateDeletePreview(Vector2Int current)
-    {
-        int dx = current.x - dragStartPos.x;
-        int dy = current.y - dragStartPos.y;
-        int count = Mathf.Max(Mathf.Abs(dx), Mathf.Abs(dy)) + 1;
-        Vector2Int dir = (Mathf.Abs(dx) >= Mathf.Abs(dy)) ? new Vector2Int((int)Mathf.Sign(dx), 0) : new Vector2Int(0, (int)Mathf.Sign(dy));
-        if (dir == Vector2Int.zero) dir = new Vector2Int(1, 0);
-
-        EnsureGhostPool(count, null);
-
-        for (int i = 0; i < count; i++)
-        {
-            Vector2Int pos = dragStartPos + (dir * i);
+            var data = currentDragPath[i];
             GameObject g = dragGhosts[i];
-            BuildingBase target = CasinoGridManager.Instance.GetBuildingAt(pos);
 
-            if (target != null)
+            if (g.name != selectedBuilding.prefab.name + "(Clone)")
             {
-                g.transform.position = CasinoGridManager.Instance.GridToWorld(pos);
-                g.transform.rotation = Quaternion.identity;
-                g.SetActive(true);
-                SetGhostMaterial(g, false);
+                Destroy(g);
+                g = Instantiate(selectedBuilding.prefab);
+                CleanupGhostVisuals(g);
+                dragGhosts[i] = g;
             }
-            else
-            {
-                g.SetActive(false);
-            }
+
+            g.transform.position = CasinoGridManager.Instance.GridToWorld(data.pos);
+            g.transform.rotation = Quaternion.Euler(0, data.rot * 90, 0);
+            g.SetActive(true);
+
+            BuildingBase logic = g.GetComponent<BuildingBase>();
+            bool valid = IsValidPlacement(data.pos, logic);
+            SetGhostMaterial(g, valid);
+
+            UpdateGhostAppearance(g, i, data.pos, data.rot);
         }
-        for (int i = count; i < dragGhosts.Count; i++) dragGhosts[i].SetActive(false);
-    }
 
-    // --- LOGIC METHODS ---
+        for (int i = currentDragPath.Count; i < dragGhosts.Count; i++) dragGhosts[i].SetActive(false);
+    }
 
     void ConfirmDragBuild()
     {
-        // Safety: Check if anything is actually active (to avoid accidental clicks)
-        int activeGhosts = 0;
-        foreach (var g in dragGhosts) if (g.activeSelf) activeGhosts++;
-
-        if (activeGhosts == 0)
+        foreach (var data in currentDragPath)
         {
-            ClearGhosts();
-            CreateSingleGhost();
-            return;
-        }
-
-        foreach (var ghost in dragGhosts)
-        {
-            if (!ghost.activeSelf) continue;
-
-            Vector2Int pos = CasinoGridManager.Instance.WorldToGrid(ghost.transform.position);
-
+            Vector2Int pos = data.pos;
             if (ResourceManager.Instance != null && !ResourceManager.Instance.CanAfford(selectedBuilding.cost)) continue;
 
             BuildingBase logic = selectedBuilding.prefab.GetComponent<BuildingBase>();
-            bool validPos = CasinoGridManager.Instance.IsBuildable(pos);
-            bool validLogic = logic.CanBePlacedAt(pos);
 
-            if (validPos && validLogic)
+            if (IsValidPlacement(pos, logic))
             {
-                if (ResourceManager.Instance != null) ResourceManager.Instance.SpendCredits(selectedBuilding.cost);
+                if (CasinoGridManager.Instance.IsOccupied(pos))
+                    CasinoGridManager.Instance.RemoveBuilding(pos);
+
+                if (ResourceManager.Instance != null)
+                    ResourceManager.Instance.SpendCredits(selectedBuilding.cost);
 
                 GameObject b = Instantiate(selectedBuilding.prefab);
                 BuildingBase baseScript = b.GetComponent<BuildingBase>();
                 baseScript.Definition = selectedBuilding;
-                baseScript.SetRotation(currentRotation);
+                baseScript.SetRotation(data.rot);
 
-                // 1. Place in Grid
                 CasinoGridManager.Instance.PlaceBuilding(baseScript, pos);
-
-                // 2. FORCE AUTO-TILER UPDATE
-                BeltAutotiler tiler = b.GetComponent<BeltAutotiler>();
-                if (tiler != null)
-                {
-                    tiler.Initialize();
-                }
+                b.SendMessage("Initialize", SendMessageOptions.DontRequireReceiver);
             }
         }
         ClearGhosts();
         CreateSingleGhost();
     }
 
-    void ConfirmDeleteDrag()
+    // --- PASTE LOGIC ---
+
+    void RotateClipboard()
     {
-        foreach (var ghost in dragGhosts)
+        for (int i = 0; i < pasteClipboard.Count; i++)
         {
-            if (!ghost.activeSelf) continue;
-            Vector2Int pos = CasinoGridManager.Instance.WorldToGrid(ghost.transform.position);
-            DeleteBuildingAt(pos);
+            var bp = pasteClipboard[i];
+            Vector2Int newPos = new Vector2Int(bp.relPos.y, -bp.relPos.x);
+            int newRot = (bp.rotation + 1) % 4;
+
+            pasteClipboard[i] = new SelectionManager.BuildingBlueprint
+            {
+                definition = bp.definition,
+                relPos = newPos,
+                rotation = newRot
+            };
         }
-        ClearGhosts();
     }
 
-    void DeleteBuildingAt(Vector2Int pos)
+    void UpdatePastePreview(Vector2Int center)
     {
-        BuildingBase building = CasinoGridManager.Instance.GetBuildingAt(pos);
-        if (building != null)
+        EnsureGhostPool(pasteClipboard.Count);
+
+        for (int i = 0; i < pasteClipboard.Count; i++)
         {
-            if (ResourceManager.Instance != null && building.Definition != null)
+            var bp = pasteClipboard[i];
+            GameObject g = dragGhosts[i];
+
+            if (g.name != bp.definition.prefab.name + "(Clone)")
             {
-                int refund = Mathf.FloorToInt(building.Definition.cost * (refundPercentage / 100f));
-                ResourceManager.Instance.AddCredits(refund);
+                Destroy(g);
+                g = Instantiate(bp.definition.prefab);
+                CleanupGhostVisuals(g);
+                dragGhosts[i] = g;
             }
-            CasinoGridManager.Instance.RemoveBuilding(pos);
+
+            Vector2Int targetPos = center + bp.relPos;
+            g.transform.position = CasinoGridManager.Instance.GridToWorld(targetPos);
+            g.transform.rotation = Quaternion.Euler(0, bp.rotation * 90, 0);
+            g.SetActive(true);
+
+            BuildingBase logic = g.GetComponent<BuildingBase>();
+            bool valid = IsValidPlacement(targetPos, logic);
+            SetGhostMaterial(g, valid);
+
+            ResetGhostVisuals(g);
+        }
+
+        for (int i = pasteClipboard.Count; i < dragGhosts.Count; i++) dragGhosts[i].SetActive(false);
+    }
+
+    void ConfirmPaste(Vector2Int center)
+    {
+        foreach (var bp in pasteClipboard)
+        {
+            Vector2Int pos = center + bp.relPos;
+            BuildingBase logic = bp.definition.prefab.GetComponent<BuildingBase>();
+
+            if (IsValidPlacement(pos, logic))
+            {
+                if (CasinoGridManager.Instance.IsOccupied(pos))
+                    CasinoGridManager.Instance.RemoveBuilding(pos);
+
+                if (ResourceManager.Instance != null)
+                    ResourceManager.Instance.SpendCredits(bp.definition.cost);
+
+                GameObject b = Instantiate(bp.definition.prefab);
+                BuildingBase baseScript = b.GetComponent<BuildingBase>();
+                baseScript.Definition = bp.definition;
+                baseScript.SetRotation(bp.rotation);
+
+                CasinoGridManager.Instance.PlaceBuilding(baseScript, pos);
+                b.SendMessage("Initialize", SendMessageOptions.DontRequireReceiver);
+            }
         }
     }
 
     // --- HELPERS ---
 
-    void EnsureGhostPool(int count, GameObject prefab)
+    void UpdateGhostAppearance(GameObject ghost, int index, Vector2Int pos, int rot)
     {
-        string prefabName = prefab != null ? prefab.name : "Cube_Delete_Marker";
-        if (dragGhosts.Count > 0 && dragGhosts[0].name != prefabName + "(Clone)")
+        if (ghost.GetComponent<ConveyorBelt>() == null) return;
+
+        bool inputLeft = false, inputRight = false, inputBack = false;
+
+        if (index > 0 && index < currentDragPath.Count)
         {
-            foreach (var g in dragGhosts) Destroy(g);
-            dragGhosts.Clear();
+            Vector2Int prevPos = currentDragPath[index - 1].pos;
+            CheckInputDirection(pos, rot, prevPos, ref inputBack, ref inputLeft, ref inputRight);
+        }
+        else
+        {
+            CheckWorldInputs(pos, rot, ref inputBack, ref inputLeft, ref inputRight);
+            if (!inputLeft && !inputRight) inputBack = true;
         }
 
+        Transform vStraight = ghost.transform.Find("Visual_Straight");
+        Transform vLeft = ghost.transform.Find("Visual_Corner_Left");
+        Transform vRight = ghost.transform.Find("Visual_Corner_Right");
+
+        if (vStraight) vStraight.gameObject.SetActive(false);
+        if (vLeft) vLeft.gameObject.SetActive(false);
+        if (vRight) vRight.gameObject.SetActive(false);
+
+        if (inputLeft && vLeft) vLeft.gameObject.SetActive(true);
+        else if (inputRight && vRight) vRight.gameObject.SetActive(true);
+        else if (vStraight) vStraight.gameObject.SetActive(true);
+    }
+
+    void CheckWorldInputs(Vector2Int myPos, int myRot, ref bool back, ref bool left, ref bool right)
+    {
+        CheckNeighbor(myPos, myRot, myPos - GetDirFromIndex(myRot), ref back, ref left, ref right);
+        CheckNeighbor(myPos, myRot, myPos + GetDirFromIndex((myRot + 3) % 4), ref back, ref left, ref right);
+        CheckNeighbor(myPos, myRot, myPos + GetDirFromIndex((myRot + 1) % 4), ref back, ref left, ref right);
+    }
+
+    void CheckNeighbor(Vector2Int myPos, int myRot, Vector2Int neighborPos, ref bool back, ref bool left, ref bool right)
+    {
+        BuildingBase b = CasinoGridManager.Instance.GetBuildingAt(neighborPos);
+        if (b != null && b is ConveyorBelt)
+        {
+            if (b.GetForwardGridPosition() == myPos)
+            {
+                CheckInputDirection(myPos, myRot, neighborPos, ref back, ref left, ref right);
+            }
+        }
+    }
+
+    void CheckInputDirection(Vector2Int myPos, int myRot, Vector2Int inputSourcePos, ref bool back, ref bool left, ref bool right)
+    {
+        Vector2Int dir = myPos - inputSourcePos;
+        Vector2Int forward = GetDirFromIndex(myRot);
+        Vector2Int rVec = GetDirFromIndex((myRot + 1) % 4);
+        Vector2Int lVec = GetDirFromIndex((myRot + 3) % 4);
+
+        if (dir == forward) back = true;
+        if (dir == rVec) right = true;
+        if (dir == lVec) left = true;
+    }
+
+    List<(Vector2Int pos, int rot)> GeneratePath(Vector2Int start, Vector2Int end)
+    {
+        var path = new List<(Vector2Int pos, int rot)>();
+        int dx = end.x - start.x;
+        int dy = end.y - start.y;
+        int xDir = (int)Mathf.Sign(dx);
+        int yDir = (int)Mathf.Sign(dy);
+        Vector2Int cursor = start;
+
+        for (int i = 0; i < Mathf.Abs(dx); i++)
+        {
+            int rot = (xDir > 0) ? 1 : 3;
+            path.Add((cursor, rot));
+            cursor.x += xDir;
+        }
+
+        for (int i = 0; i <= Mathf.Abs(dy); i++)
+        {
+            int rot = (dy == 0) ? ((xDir > 0) ? 1 : 3) : ((yDir > 0) ? 0 : 2);
+            if (dx == 0 && dy == 0) rot = currentRotation;
+            path.Add((cursor, rot));
+            if (i < Mathf.Abs(dy)) cursor.y += yDir;
+        }
+        return path;
+    }
+
+    bool IsValidPlacement(Vector2Int pos, BuildingBase logic)
+    {
+        if (!CasinoGridManager.Instance.IsUnlocked(pos)) return false;
+
+        bool occupied = CasinoGridManager.Instance.IsOccupied(pos);
+        if (occupied)
+        {
+            var existing = CasinoGridManager.Instance.GetBuildingAt(pos);
+            if (existing is ConveyorBelt && logic is ConveyorBelt) return true;
+            return false;
+        }
+        return logic.CanBePlacedAt(pos);
+    }
+
+    void ClearGhosts()
+    {
+        if (singleGhost != null) { Destroy(singleGhost); singleGhost = null; }
+        foreach (var g in dragGhosts) if (g != null) Destroy(g);
+        dragGhosts.Clear();
+        currentDragPath.Clear();
+        isDragging = false;
+    }
+
+    void EnsureGhostPool(int count)
+    {
         while (dragGhosts.Count < count)
         {
             GameObject g;
-            if (prefab != null)
-            {
-                g = Instantiate(prefab);
-                CleanupGhostVisuals(g);
-            }
-            else
-            {
-                g = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                Destroy(g.GetComponent<Collider>());
-                g.name = "Cube_Delete_Marker(Clone)";
-                g.transform.localScale = new Vector3(0.9f, 1f, 0.9f);
-            }
+            if (selectedBuilding != null) g = Instantiate(selectedBuilding.prefab);
+            else g = GameObject.CreatePrimitive(PrimitiveType.Cube);
+
+            CleanupGhostVisuals(g);
             dragGhosts.Add(g);
         }
-
-        for (int i = 0; i < dragGhosts.Count; i++) dragGhosts[i].SetActive(i < count);
     }
 
     void CleanupGhostVisuals(GameObject ghost)
     {
-        foreach (var comp in ghost.GetComponentsInChildren<MonoBehaviour>()) Destroy(comp);
-        foreach (var col in ghost.GetComponentsInChildren<Collider>()) Destroy(col);
+        foreach (var col in ghost.GetComponentsInChildren<Collider>()) col.enabled = false;
+        foreach (var comp in ghost.GetComponentsInChildren<MonoBehaviour>())
+        {
+            if (!(comp is BuildingBase)) Destroy(comp);
+        }
+    }
+
+    void ResetGhostVisuals(GameObject ghost)
+    {
+        Transform vStraight = ghost.transform.Find("Visual_Straight");
+        Transform vLeft = ghost.transform.Find("Visual_Corner_Left");
+        Transform vRight = ghost.transform.Find("Visual_Corner_Right");
+
+        if (vStraight) vStraight.gameObject.SetActive(true);
+        if (vLeft) vLeft.gameObject.SetActive(false);
+        if (vRight) vRight.gameObject.SetActive(false);
     }
 
     void SetGhostMaterial(GameObject ghost, bool isValid)
     {
-        Material targetMat = isValid ? validMat : invalidMat;
-        if (targetMat == null) return;
-        Renderer[] renderers = ghost.GetComponentsInChildren<Renderer>();
-        foreach (var r in renderers) r.material = targetMat;
+        Color c = isValid ? validColor : invalidColor;
+        foreach (var r in ghost.GetComponentsInChildren<Renderer>()) r.material.color = c;
+    }
+
+    Vector2Int GetDirFromIndex(int index)
+    {
+        switch (index)
+        {
+            case 0: return new Vector2Int(0, 1);
+            case 1: return new Vector2Int(1, 0);
+            case 2: return new Vector2Int(0, -1);
+            case 3: return new Vector2Int(-1, 0);
+        }
+        return Vector2Int.zero;
     }
 }

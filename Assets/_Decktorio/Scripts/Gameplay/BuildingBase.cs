@@ -7,13 +7,13 @@ public abstract class BuildingBase : MonoBehaviour
     public int RotationIndex { get; private set; }
 
     [Header("Debug")]
-    public bool showDebugLogs = false; // TOGGLE THIS IN INSPECTOR TO SEE LOGS
+    public bool showDebugLogs = false;
 
-    // MAIN INVENTORY
+    // MAIN INVENTORY (What is currently on the belt)
     protected CardPayload internalCard;
     protected ItemVisualizer internalVisual;
 
-    // MAILBOX
+    // MAILBOX (Buffer for the NEXT tick)
     protected CardPayload incomingCard;
     protected ItemVisualizer incomingVisual;
 
@@ -28,7 +28,6 @@ public abstract class BuildingBase : MonoBehaviour
         if (TickManager.Instance != null)
             TickManager.Instance.OnTick -= HandleTickSystem;
 
-        // FIX: Ensure visuals are destroyed when building is deleted
         if (internalVisual != null) Destroy(internalVisual.gameObject);
         if (incomingVisual != null) Destroy(incomingVisual.gameObject);
     }
@@ -60,10 +59,10 @@ public abstract class BuildingBase : MonoBehaviour
 
     private void HandleTickSystem(int tick)
     {
-        // Phase 1: Logic (Try to push output)
+        // 1. Process Logic (Try to push 'Internal' out)
         OnTick(tick);
 
-        // Phase 2: Commit (Accept incoming mail)
+        // 2. Move Mailbox to Internal (If Internal is now empty)
         if (incomingCard != null && internalCard == null)
         {
             internalCard = incomingCard;
@@ -72,7 +71,7 @@ public abstract class BuildingBase : MonoBehaviour
             incomingCard = null;
             incomingVisual = null;
 
-            if (showDebugLogs) Debug.Log($"[{name} at {GridPosition}] Accepted item.");
+            if (showDebugLogs) GameLogger.Log($"[{name}] Processed Mailbox.");
 
             OnItemArrived();
         }
@@ -80,24 +79,25 @@ public abstract class BuildingBase : MonoBehaviour
 
     protected abstract void OnTick(int tick);
 
-    // Helper for child classes to handle standard visual movement
     protected virtual void OnItemArrived()
     {
         if (internalVisual != null)
         {
             internalVisual.transform.SetParent(this.transform);
-            // Default behavior: Move to center of tile
-            Vector3 center = transform.position + Vector3.up * 0.2f;
-            internalVisual.InitializeMovement(internalVisual.transform.position, center);
+            // Visual smoothing: Move to center
+            float duration = TickManager.Instance.tickRate;
+            internalVisual.InitializeMovement(transform.position + Vector3.up * 0.2f, duration);
         }
     }
 
     public virtual bool CanAcceptItem(Vector2Int fromPos)
     {
-        // Default: Accept if empty
-        bool canAccept = internalCard == null && incomingCard == null;
-        if (!canAccept && showDebugLogs) Debug.Log($"[{name}] Refused item from {fromPos} (Full)");
-        return canAccept;
+        // CRITICAL FIX: Double Buffering
+        // Only reject if the MAILBOX is full. 
+        // We ignore 'internalCard' state because it might leave during this tick.
+        if (incomingCard != null) return false;
+
+        return true;
     }
 
     public virtual void ReceiveItem(CardPayload item, ItemVisualizer visual)

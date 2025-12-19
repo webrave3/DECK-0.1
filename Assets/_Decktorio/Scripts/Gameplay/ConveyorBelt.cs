@@ -9,6 +9,7 @@ public class ConveyorBelt : BuildingBase
 
     protected override void OnTick(int tick)
     {
+        // Try to push the item if we have one
         if (internalCard != null)
         {
             TryPushItem();
@@ -20,9 +21,11 @@ public class ConveyorBelt : BuildingBase
         // 1. Try Forward
         if (AttemptPush(GetForwardGridPosition(), "Forward")) return;
 
-        // 2. If blocked, try Left then Right (Overflow)
-        if (AttemptPush(GetLeftGridPosition(), "Left")) return;
-        if (AttemptPush(GetRightGridPosition(), "Right")) return;
+        // 2. If blocked, try Left then Right (Overflow logic)
+        // These are optional; usually belts only push forward. 
+        // Uncomment if you want belts to spill items sideways if blocked.
+        // if (AttemptPush(GetLeftGridPosition(), "Left")) return;
+        // if (AttemptPush(GetRightGridPosition(), "Right")) return;
     }
 
     private bool AttemptPush(Vector2Int targetPos, string debugDir)
@@ -32,7 +35,10 @@ public class ConveyorBelt : BuildingBase
         // Check if target exists AND can accept items from ME
         if (target != null && target.CanAcceptItem(GridPosition))
         {
+            // Pass the item AND the visual to the next building
             target.ReceiveItem(internalCard, internalVisual);
+
+            // Clear our inventory
             internalCard = null;
             internalVisual = null;
             return true;
@@ -42,6 +48,7 @@ public class ConveyorBelt : BuildingBase
 
     public override bool CanAcceptItem(Vector2Int fromPos)
     {
+        // Standard check: Is full?
         if (internalCard != null || incomingCard != null) return false;
 
         // PREVENT BACKFLOW:
@@ -49,6 +56,14 @@ public class ConveyorBelt : BuildingBase
         if (fromPos == GetForwardGridPosition()) return false;
 
         return true;
+    }
+
+    public override bool CanBePlacedAt(Vector2Int gridPos)
+    {
+        // Restriction: Cannot place belts on top of Fixed Resources
+        if (CasinoGridManager.Instance.GetResourceAt(gridPos) != null) return false;
+
+        return base.CanBePlacedAt(gridPos);
     }
 
     protected override void OnItemArrived()
@@ -63,11 +78,13 @@ public class ConveyorBelt : BuildingBase
             Vector3 worldForward = (CasinoGridManager.Instance.GridToWorld(GetForwardGridPosition()) - transform.position).normalized;
             Vector3 targetPos = transform.position + (Vector3.up * itemHeightOffset) + (worldForward * forwardVisualOffset);
 
-            internalVisual.InitializeMovement(internalVisual.transform.position, targetPos);
+            // Move over the duration of one tick
+            float duration = TickManager.Instance.tickRate;
+            internalVisual.InitializeMovement(targetPos, duration);
         }
     }
 
-    // --- PUBLIC HELPERS (For Auto-Tiler) ---
+    // --- PUBLIC HELPERS (Required for Auto-Tiler) ---
 
     public Vector2Int GetLeftGridPosition()
     {
