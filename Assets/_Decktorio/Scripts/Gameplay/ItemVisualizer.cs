@@ -6,14 +6,43 @@ public class ItemVisualizer : MonoBehaviour
     private Vector3 endPos;
     private bool isMoving = false;
 
+    // References
+    private MeshRenderer meshRenderer;
+
+    private void Awake()
+    {
+        meshRenderer = GetComponentInChildren<MeshRenderer>();
+        if (meshRenderer == null) meshRenderer = GetComponent<MeshRenderer>();
+    }
+
+    public void SetVisuals(CardPayload card)
+    {
+        if (meshRenderer == null) return;
+
+        // Temporary Debug Coloring
+        switch (card.suit)
+        {
+            case CardSuit.Heart:
+            case CardSuit.Diamond:
+                meshRenderer.material.color = Color.red;
+                break;
+            case CardSuit.Spade:
+            case CardSuit.Club:
+                meshRenderer.material.color = Color.black;
+                break;
+            default:
+                meshRenderer.material.color = Color.white;
+                break;
+        }
+    }
+
     public void InitializeMovement(Vector3 start, Vector3 end)
     {
         startPos = start;
         endPos = end;
         isMoving = true;
-        transform.position = start;
+        gameObject.SetActive(true);
 
-        // Instant rotation to face destination (prevents sideways sliding)
         if (start != end)
         {
             transform.rotation = Quaternion.LookRotation(end - start);
@@ -22,12 +51,18 @@ public class ItemVisualizer : MonoBehaviour
 
     private void Update()
     {
-        if (!isMoving) return;
+        if (TickManager.Instance == null) return;
 
-        // Get interpolation (0.0 to 1.0)
-        float percent = TickManager.Instance.GetInterpolationFactor();
+        if (isMoving)
+        {
+            float percent = TickManager.Instance.GetInterpolationFactor();
+            transform.position = Vector3.Lerp(startPos, endPos, percent);
 
-        // Smooth slide
-        transform.position = Vector3.Lerp(startPos, endPos, percent);
+            if (percent >= 1.0f)
+            {
+                isMoving = false;
+                transform.position = endPos;
+            }
+        }
     }
 }

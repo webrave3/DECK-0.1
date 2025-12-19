@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &5876896542447568243
+--- !u!1 &3683560350380229678
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,48 +8,48 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 7683650300138061050}
-  - component: {fileID: 6401675216155685701}
-  - component: {fileID: 7988617296218295959}
-  - component: {fileID: 1844948125717291366}
-  - component: {fileID: 1880132061108040006}
+  - component: {fileID: 882821506625631309}
+  - component: {fileID: 6391372336995912075}
+  - component: {fileID: 207995703054021232}
+  - component: {fileID: 2779346397202716570}
+  - component: {fileID: 615409730092450081}
   m_Layer: 0
-  m_Name: ModifierBuilding
+  m_Name: Splitter
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &7683650300138061050
+--- !u!4 &882821506625631309
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5876896542447568243}
+  m_GameObject: {fileID: 3683560350380229678}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 40, y: 0.4, z: 55}
-  m_LocalScale: {x: 1.6, y: 0.8, z: 1.6}
+  m_LocalPosition: {x: 43.23706, y: 0, z: 46.09523}
+  m_LocalScale: {x: 2, y: 1, z: 2}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!33 &6401675216155685701
+--- !u!33 &6391372336995912075
 MeshFilter:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5876896542447568243}
+  m_GameObject: {fileID: 3683560350380229678}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
---- !u!23 &7988617296218295959
+--- !u!23 &207995703054021232
 MeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5876896542447568243}
+  m_GameObject: {fileID: 3683560350380229678}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
@@ -68,7 +68,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: edd6b6fe01719814ca8dd57839d0325f, type: 2}
+  - {fileID: 2100000, guid: 178b31250a032a846abb2b46baed0152, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -91,13 +91,13 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &1844948125717291366
+--- !u!65 &2779346397202716570
 BoxCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5876896542447568243}
+  m_GameObject: {fileID: 3683560350380229678}
   m_Material: {fileID: 0}
   m_IncludeLayers:
     serializedVersion: 2
@@ -112,22 +112,17 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
---- !u!114 &1880132061108040006
+--- !u!114 &615409730092450081
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5876896542447568243}
+  m_GameObject: {fileID: 3683560350380229678}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: afdbd0439a2714e48a3dff8edfd12d13, type: 3}
+  m_Script: {fileID: 11500000, guid: 442c37c4c71af0c42b064bc4ea9581ca, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ModifierBuilding
-  Definition: {fileID: 11400000, guid: fcc56f5e42c30f94c864b9997353cdd9, type: 2}
+  m_EditorClassIdentifier: Assembly-CSharp::Splitter
+  Definition: {fileID: 11400000, guid: 322765c44e77dac458c4bc8d51b34e21, type: 2}
   showDebugLogs: 0
-  operation: 1
-  targetSuit: 1
-  targetRank: 1
-  targetColor: 1
-  processingTime: 1

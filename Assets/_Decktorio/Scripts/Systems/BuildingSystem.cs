@@ -133,7 +133,7 @@ public class BuildingSystem : MonoBehaviour
             {
                 isDragging = true;
                 dragStartPos = currentGridPos;
-                singleGhost.SetActive(false);
+                if (singleGhost != null) singleGhost.SetActive(false);
             }
 
             if (isDragging)
@@ -172,22 +172,36 @@ public class BuildingSystem : MonoBehaviour
 
     void UpdateDragPreview(Vector2Int current)
     {
-        // Calculate Line
+        // 1. Calculate Drag Vector
         int dx = current.x - dragStartPos.x;
         int dy = current.y - dragStartPos.y;
         Vector2Int dir = (Mathf.Abs(dx) >= Mathf.Abs(dy)) ? new Vector2Int((int)Mathf.Sign(dx), 0) : new Vector2Int(0, (int)Mathf.Sign(dy));
         if (dir == Vector2Int.zero) dir = new Vector2Int(1, 0);
 
-        // Rotation lock
-        if (dir.x != 0) currentRotation = (dir.x > 0) ? 1 : 3;
-        else currentRotation = (dir.y > 0) ? 0 : 2;
+        // 2. Set Rotation based on Drag Direction
+        if (dir.x > 0) currentRotation = 1;      // East
+        else if (dir.x < 0) currentRotation = 3; // West
+        else if (dir.y > 0) currentRotation = 0; // North
+        else if (dir.y < 0) currentRotation = 2; // South
 
-        int count = Mathf.Max(Mathf.Abs(dx), Mathf.Abs(dy)) + 1;
+        // 3. Smart Start Logic
+        // Check if there is already a building at the start position
+        bool startOccupied = !CasinoGridManager.Instance.IsBuildable(dragStartPos);
+        int startIndex = startOccupied ? 1 : 0; // Skip the first tile if occupied (branching mode)
 
-        EnsureGhostPool(count, selectedBuilding.prefab);
+        int dragLength = Mathf.Max(Mathf.Abs(dx), Mathf.Abs(dy)) + 1;
 
-        for (int i = 0; i < count; i++)
+        EnsureGhostPool(dragLength, selectedBuilding.prefab);
+
+        for (int i = 0; i < dragLength; i++)
         {
+            // Skip the start position if we are branching
+            if (i < startIndex)
+            {
+                dragGhosts[i].SetActive(false);
+                continue;
+            }
+
             Vector2Int pos = dragStartPos + (dir * i);
             dragGhosts[i].transform.position = CasinoGridManager.Instance.GridToWorld(pos);
             dragGhosts[i].transform.rotation = Quaternion.Euler(0, currentRotation * 90, 0);
@@ -195,69 +209,81 @@ public class BuildingSystem : MonoBehaviour
 
             bool valid = CasinoGridManager.Instance.IsBuildable(pos);
             SetGhostMaterial(dragGhosts[i], valid);
+
+            // Fix: ensure ghost mesh is active
+            ResetGhostVisuals(dragGhosts[i]);
         }
+
+        // Hide unused
+        for (int i = dragLength; i < dragGhosts.Count; i++) dragGhosts[i].SetActive(false);
+    }
+
+    void ResetGhostVisuals(GameObject ghost)
+    {
+        // Assuming ghost hierarchy is: Root -> Visual_Straight, Visual_Corner_Left...
+        Transform visualStraight = ghost.transform.Find("Visual_Straight");
+        Transform visualCL = ghost.transform.Find("Visual_Corner_Left");
+        Transform visualCR = ghost.transform.Find("Visual_Corner_Right");
+
+        if (visualStraight) visualStraight.gameObject.SetActive(true);
+        if (visualCL) visualCL.gameObject.SetActive(false);
+        if (visualCR) visualCR.gameObject.SetActive(false);
     }
 
     void UpdateDeletePreview(Vector2Int current)
     {
-        // 1. Calculate Line Direction & Length
         int dx = current.x - dragStartPos.x;
         int dy = current.y - dragStartPos.y;
-
-        // Determine primary axis (Horizontal or Vertical)
         int count = Mathf.Max(Mathf.Abs(dx), Mathf.Abs(dy)) + 1;
         Vector2Int dir = (Mathf.Abs(dx) >= Mathf.Abs(dy)) ? new Vector2Int((int)Mathf.Sign(dx), 0) : new Vector2Int(0, (int)Mathf.Sign(dy));
         if (dir == Vector2Int.zero) dir = new Vector2Int(1, 0);
 
-        // 2. Ensure Pool has enough generic "Delete Cubes" (pass null for generic)
         EnsureGhostPool(count, null);
 
-        // 3. Loop through the line
         for (int i = 0; i < count; i++)
         {
             Vector2Int pos = dragStartPos + (dir * i);
             GameObject g = dragGhosts[i];
-
-            // CHECK: Is there actually a building here?
             BuildingBase target = CasinoGridManager.Instance.GetBuildingAt(pos);
 
             if (target != null)
             {
-                // YES: Show the Red Box
                 g.transform.position = CasinoGridManager.Instance.GridToWorld(pos);
                 g.transform.rotation = Quaternion.identity;
                 g.SetActive(true);
-
-                // Force Red Color (false = Invalid/Red)
                 SetGhostMaterial(g, false);
             }
             else
             {
-                // NO: Hide the preview for this specific tile
-                // This prevents "Deleting Nothing" visuals
                 g.SetActive(false);
             }
         }
-
-        // 4. Cleanup: Hide any extra ghosts in the pool that are beyond our current count
-        for (int i = count; i < dragGhosts.Count; i++)
-        {
-            dragGhosts[i].SetActive(false);
-        }
+        for (int i = count; i < dragGhosts.Count; i++) dragGhosts[i].SetActive(false);
     }
 
     // --- LOGIC METHODS ---
 
     void ConfirmDragBuild()
     {
+        // Safety: Check if anything is actually active (to avoid accidental clicks)
+        int activeGhosts = 0;
+        foreach (var g in dragGhosts) if (g.activeSelf) activeGhosts++;
+
+        if (activeGhosts == 0)
+        {
+            ClearGhosts();
+            CreateSingleGhost();
+            return;
+        }
+
         foreach (var ghost in dragGhosts)
         {
+            if (!ghost.activeSelf) continue;
+
             Vector2Int pos = CasinoGridManager.Instance.WorldToGrid(ghost.transform.position);
 
-            // Cost Check
             if (ResourceManager.Instance != null && !ResourceManager.Instance.CanAfford(selectedBuilding.cost)) continue;
 
-            // Logic Check
             BuildingBase logic = selectedBuilding.prefab.GetComponent<BuildingBase>();
             bool validPos = CasinoGridManager.Instance.IsBuildable(pos);
             bool validLogic = logic.CanBePlacedAt(pos);
@@ -270,7 +296,16 @@ public class BuildingSystem : MonoBehaviour
                 BuildingBase baseScript = b.GetComponent<BuildingBase>();
                 baseScript.Definition = selectedBuilding;
                 baseScript.SetRotation(currentRotation);
+
+                // 1. Place in Grid
                 CasinoGridManager.Instance.PlaceBuilding(baseScript, pos);
+
+                // 2. FORCE AUTO-TILER UPDATE
+                BeltAutotiler tiler = b.GetComponent<BeltAutotiler>();
+                if (tiler != null)
+                {
+                    tiler.Initialize();
+                }
             }
         }
         ClearGhosts();
@@ -281,6 +316,7 @@ public class BuildingSystem : MonoBehaviour
     {
         foreach (var ghost in dragGhosts)
         {
+            if (!ghost.activeSelf) continue;
             Vector2Int pos = CasinoGridManager.Instance.WorldToGrid(ghost.transform.position);
             DeleteBuildingAt(pos);
         }
@@ -294,7 +330,6 @@ public class BuildingSystem : MonoBehaviour
         {
             if (ResourceManager.Instance != null && building.Definition != null)
             {
-                // Refund
                 int refund = Mathf.FloorToInt(building.Definition.cost * (refundPercentage / 100f));
                 ResourceManager.Instance.AddCredits(refund);
             }
@@ -306,9 +341,8 @@ public class BuildingSystem : MonoBehaviour
 
     void EnsureGhostPool(int count, GameObject prefab)
     {
-        // If we switch from "Belt Ghost" to "Delete Cube", clear the pool
-        string prefabName = prefab != null ? prefab.name : "Cube";
-        if (dragGhosts.Count > 0 && !dragGhosts[0].name.StartsWith(prefabName))
+        string prefabName = prefab != null ? prefab.name : "Cube_Delete_Marker";
+        if (dragGhosts.Count > 0 && dragGhosts[0].name != prefabName + "(Clone)")
         {
             foreach (var g in dragGhosts) Destroy(g);
             dragGhosts.Clear();
@@ -324,16 +358,14 @@ public class BuildingSystem : MonoBehaviour
             }
             else
             {
-                // Create a primitive cube for the deletion marker
                 g = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 Destroy(g.GetComponent<Collider>());
-                g.name = "Cube_Delete_Marker";
-                g.transform.localScale = new Vector3(1.8f, 1f, 1.8f); // Slightly smaller than grid 2.0
+                g.name = "Cube_Delete_Marker(Clone)";
+                g.transform.localScale = new Vector3(0.9f, 1f, 0.9f);
             }
             dragGhosts.Add(g);
         }
 
-        // Hide unused
         for (int i = 0; i < dragGhosts.Count; i++) dragGhosts[i].SetActive(i < count);
     }
 

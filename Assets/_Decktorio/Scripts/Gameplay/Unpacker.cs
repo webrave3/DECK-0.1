@@ -39,12 +39,16 @@ public class Unpacker : BuildingBase
 
     void SpawnItem(SupplyDrop source)
     {
-        // Direct spawn into main inventory (since we created it, no travel time)
+        // 1. Create Data
         internalCard = new CardPayload(source.rank, source.suit, 1);
 
+        // 2. Create Visual
         GameObject itemObj = Instantiate(source.itemPrefab, outputAnchor.position, Quaternion.identity);
         internalVisual = itemObj.GetComponent<ItemVisualizer>();
         internalVisual.transform.SetParent(this.transform);
+
+        // 3. APPLY VISUALS (New Line)
+        internalVisual.SetVisuals(internalCard);
     }
 
     void TryPushItem()

@@ -27,6 +27,10 @@ public abstract class BuildingBase : MonoBehaviour
     {
         if (TickManager.Instance != null)
             TickManager.Instance.OnTick -= HandleTickSystem;
+
+        // FIX: Ensure visuals are destroyed when building is deleted
+        if (internalVisual != null) Destroy(internalVisual.gameObject);
+        if (incomingVisual != null) Destroy(incomingVisual.gameObject);
     }
 
     public void Setup(Vector2Int pos)
