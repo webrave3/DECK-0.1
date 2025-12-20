@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.EventSystems;
 using System.Collections.Generic;
+using System.Collections;
 
 public class BuildingSystem : MonoBehaviour
 {
@@ -32,9 +33,6 @@ public class BuildingSystem : MonoBehaviour
     private List<GameObject> dragGhosts = new List<GameObject>();
     private List<(Vector2Int pos, int rot)> currentDragPath = new List<(Vector2Int pos, int rot)>();
 
-    public int LastCancelFrame { get; private set; } = -1;
-    public bool IsBusyOrJustCancelled => IsBuildingOrPasteActive() || LastCancelFrame == Time.frameCount;
-
     private Camera mainCam;
     private InputActionMap buildInput;
     private InputAction pointAction;
@@ -64,26 +62,68 @@ public class BuildingSystem : MonoBehaviour
 
     public bool IsBuildingOrPasteActive() => selectedBuilding != null || (pasteClipboard != null && pasteClipboard.Count > 0);
 
+    // --- BRUTE FORCE CONTROL ---
+    // We disable SelectionManager entirely when building to prevent conflicts
+    private void SetSelectionManagerActive(bool active)
+    {
+        if (SelectionManager.Instance != null)
+        {
+            if (active)
+            {
+                // We wait 1 frame before enabling it.
+                // This prevents the "Right Click" that cancelled the building from 
+                // instantly triggering a marquee selection in the same frame.
+                StartCoroutine(EnableSelectionManagerDelayed());
+            }
+            else
+            {
+                SelectionManager.Instance.enabled = false;
+            }
+        }
+    }
+
+    private IEnumerator EnableSelectionManagerDelayed()
+    {
+        yield return null; // Wait for end of frame/next frame
+        if (SelectionManager.Instance != null)
+        {
+            SelectionManager.Instance.enabled = true;
+        }
+    }
+    // ---------------------------
+
     public void SelectBuilding(BuildingDefinition def)
     {
-        Deselect();
-        if (SelectionManager.Instance) SelectionManager.Instance.DeselectAll();
+        // 1. Clean up previous state
+        Deselect(disableSelectionManager: false);
+
+        // 2. Disable SelectionManager so it can't interfere
+        SetSelectionManagerActive(false);
+
+        // 3. Set up new building
         selectedBuilding = def;
         CreateSingleGhost();
     }
 
     public void StartPasteMode(List<SelectionManager.BuildingBlueprint> clipboard)
     {
-        Deselect();
-        if (SelectionManager.Instance) SelectionManager.Instance.DeselectAll();
+        Deselect(disableSelectionManager: false);
+        SetSelectionManagerActive(false);
         pasteClipboard = new List<SelectionManager.BuildingBlueprint>(clipboard);
     }
 
-    public void Deselect()
+    // Modified Deselect to handle the toggle
+    public void Deselect(bool disableSelectionManager = true)
     {
         selectedBuilding = null;
         pasteClipboard = null;
         ClearGhosts();
+
+        if (disableSelectionManager)
+        {
+            // Re-enable SelectionManager (with delay)
+            SetSelectionManagerActive(true);
+        }
     }
 
     private void Update()
@@ -99,6 +139,7 @@ public class BuildingSystem : MonoBehaviour
         bool rightClick = Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame;
         bool escape = escapeAction.WasPressedThisFrame();
 
+        // CANCEL LOGIC
         if (rightClick || escape)
         {
             if (isDragging)
@@ -107,9 +148,10 @@ public class BuildingSystem : MonoBehaviour
                 if (selectedBuilding != null) CreateSingleGhost();
                 return;
             }
+
             if (IsBuildingOrPasteActive())
             {
-                LastCancelFrame = Time.frameCount;
+                // This triggers Deselect(), which re-enables SelectionManager next frame
                 Deselect();
                 return;
             }
@@ -184,7 +226,6 @@ public class BuildingSystem : MonoBehaviour
 
     void UpdateDragPreview(Vector2Int current)
     {
-        // Use Smart Path Generation (Worm Style)
         currentDragPath = GenerateSmartPath(dragStartPos, current);
         EnsureGhostPool(currentDragPath.Count);
         float totalCost = 0;
@@ -218,53 +259,43 @@ public class BuildingSystem : MonoBehaviour
         for (int i = currentDragPath.Count; i < dragGhosts.Count; i++) dragGhosts[i].SetActive(false);
     }
 
-    // --- SMART PATH LOGIC ---
-    // Fixes the "Starts turn at beginning" issue.
-    // If you drag mostly Vertically, it moves Y then X.
-    // If you drag mostly Horizontally, it moves X then Y.
     List<(Vector2Int pos, int rot)> GenerateSmartPath(Vector2Int start, Vector2Int end)
     {
         var path = new List<(Vector2Int pos, int rot)>();
         int dx = end.x - start.x;
         int dy = end.y - start.y;
 
-        // Determine "Major Axis" of drag
         bool moveYFirst = Mathf.Abs(dy) > Mathf.Abs(dx);
-
         Vector2Int cursor = start;
 
-        if (!moveYFirst) // Horizontal First (X then Y)
+        if (!moveYFirst) // Horizontal First
         {
             int xDir = (int)Mathf.Sign(dx);
             for (int i = 0; i < Mathf.Abs(dx); i++)
             {
-                // While moving X, rotation is East/West
                 path.Add((cursor, (xDir > 0) ? 1 : 3));
                 cursor.x += xDir;
             }
             int yDir = (int)Mathf.Sign(dy);
             for (int i = 0; i <= Mathf.Abs(dy); i++)
             {
-                // Turning point or Vertical segment
                 int rot = (dy == 0) ? ((xDir > 0) ? 1 : 3) : ((yDir > 0) ? 0 : 2);
-                if (dx == 0 && dy == 0) rot = currentRotation; // Single point
+                if (dx == 0 && dy == 0) rot = currentRotation;
                 path.Add((cursor, rot));
                 if (i < Mathf.Abs(dy)) cursor.y += yDir;
             }
         }
-        else // Vertical First (Y then X) - This handles the "Vertical Worm" feel
+        else // Vertical First
         {
             int yDir = (int)Mathf.Sign(dy);
             for (int i = 0; i < Mathf.Abs(dy); i++)
             {
-                // While moving Y, rotation is North/South
                 path.Add((cursor, (yDir > 0) ? 0 : 2));
                 cursor.y += yDir;
             }
             int xDir = (int)Mathf.Sign(dx);
             for (int i = 0; i <= Mathf.Abs(dx); i++)
             {
-                // Turning point or Horizontal segment
                 int rot = (dx == 0) ? ((yDir > 0) ? 0 : 2) : ((xDir > 0) ? 1 : 3);
                 if (dx == 0 && dy == 0) rot = currentRotation;
                 path.Add((cursor, rot));
@@ -358,14 +389,11 @@ public class BuildingSystem : MonoBehaviour
         }
     }
 
-    // --- PREVIEW VISUAL FIX ---
     void UpdateGhostAppearance(GameObject ghost, Vector2Int pos, int rot, List<(Vector2Int pos, int rot)> dragList, int index)
     {
         if (ghost.GetComponent<ConveyorBelt>() == null) return;
 
         bool inputLeft = false, inputRight = false;
-
-        // 1. Check Drag Neighbors
         if (dragList != null && index > 0)
         {
             Vector2Int prevPos = dragList[index - 1].pos;
@@ -373,7 +401,6 @@ public class BuildingSystem : MonoBehaviour
         }
         else
         {
-            // 2. Check World Neighbors (for the first piece)
             CheckWorldInputs(pos, rot, ref inputLeft, ref inputRight);
         }
 
@@ -385,7 +412,6 @@ public class BuildingSystem : MonoBehaviour
         if (vLeft) vLeft.gameObject.SetActive(false);
         if (vRight) vRight.gameObject.SetActive(false);
 
-        // Correct Visual Logic
         if (inputLeft) vLeft.gameObject.SetActive(true);
         else if (inputRight) vRight.gameObject.SetActive(true);
         else if (vStraight) vStraight.gameObject.SetActive(true);
@@ -393,9 +419,8 @@ public class BuildingSystem : MonoBehaviour
 
     void CheckWorldInputs(Vector2Int myPos, int myRot, ref bool left, ref bool right)
     {
-        // Check surrounding neighbors to see if they feed into me
-        CheckNeighbor(myPos, myRot, myPos + GetDirFromIndex((myRot + 3) % 4), ref left, ref right); // Left Neighbor
-        CheckNeighbor(myPos, myRot, myPos + GetDirFromIndex((myRot + 1) % 4), ref left, ref right); // Right Neighbor
+        CheckNeighbor(myPos, myRot, myPos + GetDirFromIndex((myRot + 3) % 4), ref left, ref right);
+        CheckNeighbor(myPos, myRot, myPos + GetDirFromIndex((myRot + 1) % 4), ref left, ref right);
     }
 
     void CheckNeighbor(Vector2Int myPos, int myRot, Vector2Int neighborPos, ref bool left, ref bool right)
@@ -409,12 +434,10 @@ public class BuildingSystem : MonoBehaviour
 
     void CheckInputDirection(Vector2Int myPos, int myRot, Vector2Int sourcePos, ref bool left, ref bool right)
     {
-        // Helper to check relative direction
         Vector2Int leftDir = GetDirFromIndex((myRot + 3) % 4);
         Vector2Int rightDir = GetDirFromIndex((myRot + 1) % 4);
-        Vector2Int incomingDir = sourcePos - myPos; // Direction from Me to Source
+        Vector2Int incomingDir = sourcePos - myPos;
 
-        // If source is at my "Left", incomingDir should equal leftDir
         if (incomingDir == leftDir) left = true;
         if (incomingDir == rightDir) right = true;
     }

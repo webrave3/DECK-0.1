@@ -351,6 +351,7 @@ GameObject:
   - component: {fileID: 69272038}
   - component: {fileID: 69272039}
   - component: {fileID: 69272040}
+  - component: {fileID: 69272041}
   m_Layer: 0
   m_Name: _GameManager
   m_TagString: Untagged
@@ -480,6 +481,24 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d11f69faabd2afc458a5f508020ebf56, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DebugInputLogger
+--- !u!114 &69272041
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 69272032}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4c310109d3e0a6e4bad06aa6ef94a9bc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SelectionManager
+  selectionBoxUI: {fileID: 1895657547}
+  buildingLayer:
+    serializedVersion: 2
+    m_Bits: 0
+  selectColor: {r: 0.6226415, g: 0.6226415, b: 0.6226415, a: 0.44313726}
+  deleteColor: {r: 1, g: 0, b: 0, a: 0.52156866}
 --- !u!1 &161814160
 GameObject:
   m_ObjectHideFlags: 0
@@ -876,56 +895,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 487878217}
   m_CullTransparentMesh: 1
---- !u!1 &514097945
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 514097947}
-  - component: {fileID: 514097946}
-  m_Layer: 0
-  m_Name: SelectionManager
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &514097946
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 514097945}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4c310109d3e0a6e4bad06aa6ef94a9bc, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::SelectionManager
-  selectionBoxUI: {fileID: 1895657547}
-  buildingLayer:
-    serializedVersion: 2
-    m_Bits: 1
-  selectColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
-  deleteColor: {r: 1, g: 0.2, b: 0.2, a: 1}
---- !u!4 &514097947
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 514097945}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 595.3346, y: 0, z: 442.6621}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &564041920
 GameObject:
   m_ObjectHideFlags: 0
@@ -1961,13 +1930,14 @@ GameObject:
   - component: {fileID: 1895657547}
   - component: {fileID: 1895657549}
   - component: {fileID: 1895657548}
+  - component: {fileID: 1895657550}
   m_Layer: 5
   m_Name: Image
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1895657547
 RectTransform:
   m_ObjectHideFlags: 0
@@ -2000,7 +1970,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 0.39215687}
+  m_Color: {r: 0.20183852, g: 0.028301716, b: 1, a: 0.39215687}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -2025,6 +1995,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1895657546}
   m_CullTransparentMesh: 1
+--- !u!114 &1895657550
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1895657546}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c1b6e1b12c17b764eb6389c1b8b992a7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WhoEnabledMe
 --- !u!1001 &1955130375
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -2099,5 +2081,4 @@ SceneRoots:
   - {fileID: 1955130375}
   - {fileID: 661034209}
   - {fileID: 564041921}
-  - {fileID: 514097947}
   - {fileID: 212387442}

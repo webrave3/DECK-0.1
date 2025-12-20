@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.InputSystem;
 using System.Collections.Generic;
 
@@ -18,7 +18,7 @@ public class SelectionManager : MonoBehaviour
     // State
     private Vector2 startMousePos;
     private bool isSelecting;
-    private bool isDeconstructMode; // Added back for right-click delete
+    private bool isDeconstructMode;
     private List<BuildingBase> selectedBuildings = new List<BuildingBase>();
 
     // Cache for coloring
@@ -40,7 +40,15 @@ public class SelectionManager : MonoBehaviour
 
     private void Awake()
     {
+        // Singleton Setup that destroys duplicates automatically
+        if (Instance != null && Instance != this)
+        {
+            Debug.LogError($"[SelectionManager] Duplicate detected on {gameObject.name}. Destroying it.");
+            Destroy(this);
+            return;
+        }
         Instance = this;
+
         mouse = Mouse.current;
         keyboard = Keyboard.current;
 
@@ -51,35 +59,37 @@ public class SelectionManager : MonoBehaviour
         }
     }
 
+    // --- BRUTE FORCE FIX: SAFETY SHUTDOWN ---
+    private void OnDisable()
+    {
+        // If this script gets disabled (by BuildingSystem), force the UI to hide immediately.
+        isSelecting = false;
+        if (selectionBoxUI != null) selectionBoxUI.gameObject.SetActive(false);
+    }
+    // ----------------------------------------
+
     private void Update()
     {
         if (mouse == null || keyboard == null) return;
 
-        // --- BRUTE FORCE FIX ---
-        // If BuildingSystem is active OR it just cancelled this frame, 
-        // we completely ignore input for this frame.
-        if (BuildingSystem.Instance != null && BuildingSystem.Instance.IsBusyOrJustCancelled)
-        {
-            return;
-        }
-
         // 1. Handle Selection Input
-        // Left Click = Select, Right Click = Deconstruct
         bool leftClick = mouse.leftButton.wasPressedThisFrame;
         bool rightClick = mouse.rightButton.wasPressedThisFrame;
 
         if (!isSelecting && (leftClick || rightClick))
         {
-            // Safety: Don't start dragging from (0,0)
+            // Safety: Don't start dragging from (0,0) or if mouse is over UI
             if (mouse.position.ReadValue().sqrMagnitude < 1) return;
+            if (UnityEngine.EventSystems.EventSystem.current != null &&
+                UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject()) return;
 
-            StartSelection(rightClick); // Pass true if right click (Deconstruct)
+            StartSelection(rightClick);
         }
 
         if (isSelecting)
         {
             UpdateSelectionBox();
-            UpdateHighlightPreview(); // Visual feedback
+            UpdateHighlightPreview();
 
             // Finish on Release
             if (!isDeconstructMode && mouse.leftButton.wasReleasedThisFrame)
@@ -95,20 +105,11 @@ public class SelectionManager : MonoBehaviour
         // 2. Handle Shortcuts
         if (selectedBuildings.Count > 0 && !isSelecting)
         {
-            // DELETE
-            if (keyboard.deleteKey.wasPressedThisFrame)
-            {
-                DeleteSelected();
-            }
+            if (keyboard.deleteKey.wasPressedThisFrame) DeleteSelected();
 
-            // COPY
-            if (keyboard.ctrlKey.isPressed && keyboard.cKey.wasPressedThisFrame)
-            {
-                CopySelection();
-            }
+            if (keyboard.ctrlKey.isPressed && keyboard.cKey.wasPressedThisFrame) CopySelection();
         }
 
-        // PASTE
         if (clipboard.Count > 0 && keyboard.ctrlKey.isPressed && keyboard.vKey.wasPressedThisFrame)
         {
             PasteSelection();
@@ -145,16 +146,12 @@ public class SelectionManager : MonoBehaviour
 
     void UpdateHighlightPreview()
     {
-        // Simple bounding box check against all buildings
-        // (Optimized: In a real game, query the GridManager, but FindObjects is fine for <1000 items)
-
         Vector2 min = Vector2.Min(startMousePos, mouse.position.ReadValue());
         Vector2 max = Vector2.Max(startMousePos, mouse.position.ReadValue());
 
         // Single click check
         if ((max - min).magnitude < 5f)
         {
-            // Raycast for single object
             Ray ray = Camera.main.ScreenPointToRay(mouse.position.ReadValue());
             if (Physics.Raycast(ray, out RaycastHit hit, 1000f, buildingLayer))
             {
@@ -176,8 +173,6 @@ public class SelectionManager : MonoBehaviour
             }
             else if (!inBox && selectedBuildings.Contains(b))
             {
-                // Note: This simple logic deselects items if you drag over them then away. 
-                // For "Shift+Add", logic would be more complex. Keeping it simple.
                 RestoreBuildingColor(b);
                 selectedBuildings.Remove(b);
             }
