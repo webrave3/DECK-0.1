@@ -7,7 +7,6 @@ public class ModifierBuilding : BuildingBase
     [Header("Modifier Configuration")]
     public ModificationType operation;
 
-    // We use specific types so you see dropdowns in the Inspector
     [Tooltip("Used if Operation is SetSuit")]
     public CardSuit targetSuit = CardSuit.Heart;
 
@@ -19,14 +18,14 @@ public class ModifierBuilding : BuildingBase
     public CardColor targetColor = CardColor.Red;
 
     [Header("Processing")]
-    public int processingTime = 5;
-    private int processTimer = 0;
+    public float processingTime = 1.0f; // Changed to float for TickManager
+    private float processTimer = 0f;
 
     protected override void OnTick(int tick)
     {
-        if (internalCard != null)
+        if (internalItem != null)
         {
-            processTimer++;
+            processTimer += TickManager.Instance.tickRate;
 
             if (processTimer >= processingTime)
             {
@@ -49,29 +48,43 @@ public class ModifierBuilding : BuildingBase
         }
     }
 
-    void ModifyCard(CardPayload card)
+    void ModifyStack(ItemPayload item)
     {
-        // 1. Logic Update
-        switch (operation)
+        // Iterate through all cards in the stack and modify them
+        for (int i = 0; i < item.contents.Count; i++)
         {
-            case ModificationType.SetRank:
-                card.rank = targetRank;
-                break;
-            case ModificationType.SetSuit:
-                card.suit = targetSuit;
-                break;
-            case ModificationType.SetColor:
-                card.color = targetColor;
-                break;
+            CardData card = item.contents[i];
+
+            // 1. Apply Logic
+            switch (operation)
+            {
+                case ModificationType.SetRank:
+                    card.rank = targetRank;
+                    break;
+                case ModificationType.SetSuit:
+                    card.suit = targetSuit;
+                    // Auto-update color to match suit (Standard Deck rules)
+                    if (targetSuit == CardSuit.Heart || targetSuit == CardSuit.Diamond)
+                        card.color = CardColor.Red;
+                    else
+                        card.color = CardColor.Black;
+                    break;
+                case ModificationType.SetColor:
+                    card.color = targetColor;
+                    break;
+            }
+
+            // Write the modified struct back into the list
+            item.contents[i] = card;
         }
 
-        // 2. Visual Update (Refresh the look of the card)
+        // 2. Visual Update
         if (internalVisual != null)
         {
-            internalVisual.SetVisuals(card);
+            internalVisual.SetVisuals(item);
         }
 
-        GameLogger.Log($"Modifier: Card changed to {card.suit} {card.rank}");
+        GameLogger.Log($"Modifier: Updated stack of {item.contents.Count}");
     }
 
     void TryPushItem()
@@ -82,15 +95,15 @@ public class ModifierBuilding : BuildingBase
         if (target != null && target.CanAcceptItem(GridPosition))
         {
             // Apply the change BEFORE pushing
-            ModifyCard(internalCard);
+            ModifyStack(internalItem);
 
-            target.ReceiveItem(internalCard, internalVisual);
+            target.ReceiveItem(internalItem, internalVisual);
 
-            internalCard = null;
+            internalItem = null;
             internalVisual = null;
-            processTimer = 0;
+            processTimer = 0f;
         }
     }
 
-    public override bool CanAcceptItem(Vector2Int fromPos) => internalCard == null && incomingCard == null;
+    public override bool CanAcceptItem(Vector2Int fromPos) => internalItem == null && incomingItem == null;
 }

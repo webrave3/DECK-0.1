@@ -10,11 +10,11 @@ public abstract class BuildingBase : MonoBehaviour
     public bool showDebugLogs = false;
 
     // MAIN INVENTORY (What is currently on the belt)
-    protected CardPayload internalCard;
+    protected ItemPayload internalItem;
     protected ItemVisualizer internalVisual;
 
     // MAILBOX (Buffer for the NEXT tick)
-    protected CardPayload incomingCard;
+    protected ItemPayload incomingItem;
     protected ItemVisualizer incomingVisual;
 
     protected virtual void Start()
@@ -30,6 +30,13 @@ public abstract class BuildingBase : MonoBehaviour
 
         if (internalVisual != null) Destroy(internalVisual.gameObject);
         if (incomingVisual != null) Destroy(incomingVisual.gameObject);
+    }
+
+    // --- INITIALIZATION (Fixes CS1061 Error) ---
+    public virtual void Initialize(Vector2Int pos, int rot)
+    {
+        Setup(pos);
+        SetRotation(rot);
     }
 
     public void Setup(Vector2Int pos)
@@ -63,12 +70,12 @@ public abstract class BuildingBase : MonoBehaviour
         OnTick(tick);
 
         // 2. Move Mailbox to Internal (If Internal is now empty)
-        if (incomingCard != null && internalCard == null)
+        if (incomingItem != null && internalItem == null)
         {
-            internalCard = incomingCard;
+            internalItem = incomingItem;
             internalVisual = incomingVisual;
 
-            incomingCard = null;
+            incomingItem = null;
             incomingVisual = null;
 
             if (showDebugLogs) GameLogger.Log($"[{name}] Processed Mailbox.");
@@ -92,17 +99,14 @@ public abstract class BuildingBase : MonoBehaviour
 
     public virtual bool CanAcceptItem(Vector2Int fromPos)
     {
-        // CRITICAL FIX: Double Buffering
-        // Only reject if the MAILBOX is full. 
-        // We ignore 'internalCard' state because it might leave during this tick.
-        if (incomingCard != null) return false;
-
+        // Double Buffering: Only reject if the MAILBOX is full. 
+        if (incomingItem != null) return false;
         return true;
     }
 
-    public virtual void ReceiveItem(CardPayload item, ItemVisualizer visual)
+    public virtual void ReceiveItem(ItemPayload item, ItemVisualizer visual)
     {
-        incomingCard = item;
+        incomingItem = item;
         incomingVisual = visual;
     }
 

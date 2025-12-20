@@ -10,7 +10,7 @@ public class Sorter : BuildingBase
 
     protected override void OnTick(int tick)
     {
-        if (internalCard != null)
+        if (internalItem != null)
         {
             HandleSorting();
         }
@@ -18,12 +18,16 @@ public class Sorter : BuildingBase
 
     private void HandleSorting()
     {
-        // 1. Check Condition
-        bool isMatch = (internalCard.suit == filterSuit);
+        // Safety check for empty stacks
+        if (internalItem.contents.Count == 0) return;
+
+        // 1. Check Condition (Look at the top card)
+        CardData topCard = internalItem.contents[0];
+        bool isMatch = (topCard.suit == filterSuit);
 
         // 2. Determine Target Direction
         // Match -> Left
-        // No Match -> Forward (Base method)
+        // No Match -> Forward
         Vector2Int targetPos = isMatch ? GetLeftGridPosition() : GetForwardGridPosition();
 
         // 3. Attempt Push
@@ -37,11 +41,10 @@ public class Sorter : BuildingBase
     {
         BuildingBase target = CasinoGridManager.Instance.GetBuildingAt(targetPos);
 
-        // Check if target exists AND accepts items from us
         if (target != null && target.CanAcceptItem(GridPosition))
         {
-            target.ReceiveItem(internalCard, internalVisual);
-            internalCard = null;
+            target.ReceiveItem(internalItem, internalVisual);
+            internalItem = null;
             internalVisual = null;
             return true;
         }
@@ -55,30 +58,15 @@ public class Sorter : BuildingBase
             internalVisual.transform.SetParent(this.transform);
             Vector3 targetPos = transform.position + Vector3.up * itemHeightOffset;
 
-            // Move over one tick duration
             float duration = TickManager.Instance.tickRate;
             internalVisual.InitializeMovement(targetPos, duration);
         }
     }
 
     // --- Helpers ---
-
     private Vector2Int GetLeftGridPosition()
     {
         int idx = (RotationIndex + 3) % 4; // -90 degrees
-        return GridPosition + GetDirFromIndex(idx);
-    }
-
-    // Helper duplicated here to avoid dependency on ConveyorBelt class
-    private Vector2Int GetDirFromIndex(int index)
-    {
-        switch (index)
-        {
-            case 0: return new Vector2Int(0, 1);
-            case 1: return new Vector2Int(1, 0);
-            case 2: return new Vector2Int(0, -1);
-            case 3: return new Vector2Int(-1, 0);
-        }
-        return Vector2Int.zero;
+        return GridPosition + ConveyorBelt.GetDirFromIndex(idx);
     }
 }

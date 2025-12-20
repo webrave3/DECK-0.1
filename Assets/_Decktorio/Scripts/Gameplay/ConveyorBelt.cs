@@ -7,10 +7,13 @@ public class ConveyorBelt : BuildingBase
     [Tooltip("0 = Center, 0.5 = Edge of tile. Use 0.5 to make items queue seamlessly.")]
     public float forwardVisualOffset = 0.5f;
 
+    [Header("Gameplay")]
+    public float speedModifier = 1.0f; // Velocity Bonus
+
     protected override void OnTick(int tick)
     {
         // Try to push the item if we have one
-        if (internalCard != null)
+        if (internalItem != null)
         {
             TryPushItem();
         }
@@ -20,12 +23,6 @@ public class ConveyorBelt : BuildingBase
     {
         // 1. Try Forward
         if (AttemptPush(GetForwardGridPosition(), "Forward")) return;
-
-        // 2. If blocked, try Left then Right (Overflow logic)
-        // These are optional; usually belts only push forward. 
-        // Uncomment if you want belts to spill items sideways if blocked.
-        // if (AttemptPush(GetLeftGridPosition(), "Left")) return;
-        // if (AttemptPush(GetRightGridPosition(), "Right")) return;
     }
 
     private bool AttemptPush(Vector2Int targetPos, string debugDir)
@@ -35,11 +32,14 @@ public class ConveyorBelt : BuildingBase
         // Check if target exists AND can accept items from ME
         if (target != null && target.CanAcceptItem(GridPosition))
         {
+            // Apply Velocity Bonus to the item as it travels
+            internalItem.velocityBonus = this.speedModifier;
+
             // Pass the item AND the visual to the next building
-            target.ReceiveItem(internalCard, internalVisual);
+            target.ReceiveItem(internalItem, internalVisual);
 
             // Clear our inventory
-            internalCard = null;
+            internalItem = null;
             internalVisual = null;
             return true;
         }
@@ -49,7 +49,7 @@ public class ConveyorBelt : BuildingBase
     public override bool CanAcceptItem(Vector2Int fromPos)
     {
         // Standard check: Is full?
-        if (internalCard != null || incomingCard != null) return false;
+        if (internalItem != null || incomingItem != null) return false;
 
         // PREVENT BACKFLOW:
         // Do not accept items coming from the direction we are facing.
@@ -73,8 +73,6 @@ public class ConveyorBelt : BuildingBase
             internalVisual.transform.SetParent(this.transform);
 
             // CALCULATE EXIT POINT (Edge of tile in forward direction)
-            // This prevents the visual "teleport" by moving the item to the edge
-            // where the next belt picks it up.
             Vector3 worldForward = (CasinoGridManager.Instance.GridToWorld(GetForwardGridPosition()) - transform.position).normalized;
             Vector3 targetPos = transform.position + (Vector3.up * itemHeightOffset) + (worldForward * forwardVisualOffset);
 

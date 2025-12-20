@@ -32,7 +32,7 @@ public class CasinoGridManager : MonoBehaviour
         if (unlockedPlots == null || unlockedPlots.GetLength(0) != mapWidth)
         {
             unlockedPlots = new bool[mapWidth, mapHeight];
-            UnlockArea(45, 45, 10, 10);
+            UnlockArea(45, 45, 10, 10); // Start zone
         }
     }
 
@@ -43,7 +43,7 @@ public class CasinoGridManager : MonoBehaviour
                 if (IsValidCoord(x, y)) unlockedPlots[x, y] = true;
     }
 
-    // --- UPDATED CHECKS ---
+    // --- CHECKS ---
 
     public bool IsValidCoord(int x, int y)
     {
@@ -62,13 +62,14 @@ public class CasinoGridManager : MonoBehaviour
         return grid[pos.x, pos.y] != null;
     }
 
-    // Standard check (Strict)
+    public bool IsCellEmpty(Vector2Int pos) => !IsOccupied(pos); // Helper alias
+
     public bool IsBuildable(Vector2Int pos)
     {
         return IsUnlocked(pos) && !IsOccupied(pos);
     }
 
-    // --- CRUD ---
+    // --- MANAGEMENT ---
 
     public void PlaceBuilding(BuildingBase building, Vector2Int pos)
     {
@@ -78,7 +79,14 @@ public class CasinoGridManager : MonoBehaviour
         if (grid[pos.x, pos.y] != null) RemoveBuilding(pos);
 
         grid[pos.x, pos.y] = building;
+        // Note: BuildingSystem calls Initialize(), which calls Setup(). 
+        // We call Setup here just in case it wasn't called externally.
         building.Setup(pos);
+    }
+
+    public void RegisterBuilding(Vector2Int pos, BuildingBase building)
+    {
+        PlaceBuilding(building, pos); // Alias for compatibility
     }
 
     public BuildingBase GetBuildingAt(Vector2Int pos)
@@ -110,6 +118,8 @@ public class CasinoGridManager : MonoBehaviour
         if (!IsValidCoord(pos.x, pos.y)) return null;
         return resourceGrid[pos.x, pos.y];
     }
+
+    // --- CONVERSION ---
 
     public Vector2Int WorldToGrid(Vector3 worldPos)
     {

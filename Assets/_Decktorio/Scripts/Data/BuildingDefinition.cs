@@ -1,13 +1,20 @@
 using UnityEngine;
 
-[CreateAssetMenu(fileName = "New Building", menuName = "Decktorio/Building Definition")]
+[CreateAssetMenu(menuName = "Decktorio/Building Definition")]
 public class BuildingDefinition : ScriptableObject
 {
-    public string buildingName;
-    public GameObject prefab;
-    public int width = 1;
-    public int height = 1;
-    public int cost = 10;
+    [Header("Identity")]
+    public string id;
+    public string displayName;
 
-    [TextArea] public string description;
+    [Header("Visuals")]
+    public GameObject prefab;      // The actual functional object
+    public GameObject visualGhost; // Optional: A semi-transparent material version
+    public Sprite icon;            // For the Hotbar UI
+
+    [Header("Economy")]
+    public int baseDebtCost = 10;  // How much Debt is generated to place this
+
+    [Header("Grid Logic")]
+    public Vector2Int size = Vector2Int.one; // 1x1, 2x2, etc.
 }

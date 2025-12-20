@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fb2a1ec045c7c364a86089a07ac459b7, type: 3}
-  m_Name: Def_Assembler
+  m_Name: Def_Collator
   m_EditorClassIdentifier: Assembly-CSharp::BuildingDefinition
   buildingName: Assembler
   prefab: {fileID: 6847701902936027944, guid: 9f783897d5df21348af9e03f7d9c2c66, type: 3}

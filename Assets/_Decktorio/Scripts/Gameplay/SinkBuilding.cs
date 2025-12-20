@@ -3,47 +3,50 @@ using UnityEngine;
 public class SinkBuilding : BuildingBase
 {
     [Header("Sink Settings")]
-    public bool isIncinerator = false; // If true, just destroy. If false, Sell.
+    public bool isIncinerator = false;
     public float sellMultiplier = 1.0f;
 
     protected override void OnTick(int tick)
     {
-        // Sinks don't "push" items. They just wait for items to arrive.
-        // The logic happens in OnItemArrived.
+        // Passive receiver - Logic happens in OnItemArrived
     }
 
     protected override void OnItemArrived()
     {
-        // Item has visually and logically arrived in our inventory.
-        if (internalCard != null)
+        // Use internalItem (ItemPayload)
+        if (internalItem != null)
         {
-            ProcessItem(internalCard);
+            ProcessItem(internalItem);
 
-            // Destroy visual
             if (internalVisual != null) Destroy(internalVisual.gameObject);
-            internalCard = null;
+            internalItem = null;
             internalVisual = null;
         }
     }
 
-    void ProcessItem(CardPayload card)
+    void ProcessItem(ItemPayload item)
     {
-        if (isIncinerator)
+        if (isIncinerator) return;
+
+        // 1. Evaluate the Stack
+        PokerHandType handType = PokerEvaluator.Evaluate(item.contents);
+
+        // 2. Base Value
+        int baseValue = PokerEvaluator.GetHandValue(handType);
+
+        // 3. Apply Multipliers (Velocity * Stack Bonuses)
+        float totalValue = baseValue * item.velocityBonus * item.valueMultiplier;
+
+        int finalPayout = Mathf.RoundToInt(totalValue * sellMultiplier);
+
+        // 4. Pay (UPDATED FOR DEBT ECONOMY)
+        GameLogger.Log($"[Sink] Sold {handType} ({item.contents.Count} cards) for ${finalPayout}");
+
+        if (EconomyManager.Instance != null)
         {
-            // Just destroy. No money.
-            // Optional: Spawn a little "Smoke" particle effect here later.
-            return;
+            EconomyManager.Instance.ProcessPayout(finalPayout);
         }
-
-        // Casino Floor Logic (Sell)
-        float value = 0.1f;
-        if (card.rank > 0) value += card.rank * 1.0f;
-        if (card.suit != CardSuit.None) value *= 2.0f;
-
-        int payout = Mathf.CeilToInt(value * sellMultiplier);
-        if (ResourceManager.Instance != null) ResourceManager.Instance.AddCredits(payout);
     }
 
-    // Sinks accept everything
-    public override bool CanAcceptItem(Vector2Int fromPos) => internalCard == null && incomingCard == null;
+    public override bool CanAcceptItem(Vector2Int fromPos) => internalItem == null && incomingItem == null;
 }

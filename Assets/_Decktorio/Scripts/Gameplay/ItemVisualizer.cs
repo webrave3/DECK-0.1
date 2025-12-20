@@ -5,7 +5,7 @@ public class ItemVisualizer : MonoBehaviour
     private Vector3 startPos;
     private Vector3 targetPos;
     private float moveProgress = 0f;
-    private float moveDuration = 1f; // Will be set by belt speed
+    private float moveDuration = 1f;
     private bool isMoving = false;
 
     // References
@@ -17,12 +17,15 @@ public class ItemVisualizer : MonoBehaviour
         if (meshRenderer == null) meshRenderer = GetComponent<MeshRenderer>();
     }
 
-    public void SetVisuals(CardPayload card)
+    public void SetVisuals(ItemPayload item)
     {
-        if (meshRenderer == null) return;
+        if (meshRenderer == null || item.contents.Count == 0) return;
 
-        // Visual debug colors based on suit
-        switch (card.suit)
+        // Get the top card of the stack for visual representation
+        CardData topCard = item.contents[item.contents.Count - 1];
+
+        // Simple color debugging
+        switch (topCard.suit)
         {
             case CardSuit.Heart:
             case CardSuit.Diamond:
@@ -36,14 +39,16 @@ public class ItemVisualizer : MonoBehaviour
                 meshRenderer.material.color = Color.white;
                 break;
         }
+
+        // If it's a stack, maybe scale it slightly?
+        if (item.contents.Count > 1)
+        {
+            transform.localScale = new Vector3(1, 1 + (item.contents.Count * 0.1f), 1);
+        }
     }
 
-    /// <summary>
-    /// Starts moving the item from its CURRENT position to the new target.
-    /// </summary>
     public void InitializeMovement(Vector3 end, float duration)
     {
-        // Start from wherever we are right now to prevent teleporting
         startPos = transform.position;
         targetPos = end;
         moveDuration = duration;
@@ -51,7 +56,6 @@ public class ItemVisualizer : MonoBehaviour
         isMoving = true;
         gameObject.SetActive(true);
 
-        // Face the direction of travel
         if (startPos != targetPos)
         {
             transform.rotation = Quaternion.LookRotation(targetPos - startPos);
@@ -62,20 +66,18 @@ public class ItemVisualizer : MonoBehaviour
     {
         if (!isMoving || TickManager.Instance == null) return;
 
-        // Calculate speed based on tick rate so it matches the game loop
         float speedMultiplier = 1f / TickManager.Instance.tickRate;
         float dt = Time.deltaTime * speedMultiplier;
 
         moveProgress += dt;
         float t = Mathf.Clamp01(moveProgress);
 
-        // Smooth Lerp
         transform.position = Vector3.Lerp(startPos, targetPos, t);
 
         if (t >= 1.0f)
         {
             isMoving = false;
-            transform.position = targetPos; // Snap to exact end to avoid drift
+            transform.position = targetPos;
         }
     }
 }

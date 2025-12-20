@@ -1,5 +1,7 @@
 using UnityEngine;
 
+// NOTE: This acts as a "Resource Extractor" based on your original code.
+// Consider renaming to "CardPress" or "Extractor" later.
 public class Unpacker : BuildingBase
 {
     [Header("Production")]
@@ -8,6 +10,7 @@ public class Unpacker : BuildingBase
 
     private float progress = 0;
 
+    // Only placeable on SupplyDrops (Resources)
     public override bool CanBePlacedAt(Vector2Int gridPos)
     {
         return CasinoGridManager.Instance.GetResourceAt(gridPos) != null;
@@ -15,7 +18,7 @@ public class Unpacker : BuildingBase
 
     protected override void OnTick(int tick)
     {
-        if (internalCard != null)
+        if (internalItem != null)
         {
             TryPushItem();
             return;
@@ -39,16 +42,22 @@ public class Unpacker : BuildingBase
 
     void SpawnItem(SupplyDrop source)
     {
-        // 1. Create Data
-        internalCard = new CardPayload(source.rank, source.suit, 1);
+        // 1. Create Data (Single Card struct)
+        CardData newCard = new CardData(source.rank, source.suit);
 
-        // 2. Create Visual
-        GameObject itemObj = Instantiate(source.itemPrefab, outputAnchor.position, Quaternion.identity);
-        internalVisual = itemObj.GetComponent<ItemVisualizer>();
-        internalVisual.transform.SetParent(this.transform);
+        // 2. Wrap in Payload (Stack of 1)
+        internalItem = new ItemPayload(newCard);
 
-        // 3. APPLY VISUALS (New Line)
-        internalVisual.SetVisuals(internalCard);
+        // 3. Create Visual
+        if (source.itemPrefab != null && outputAnchor != null)
+        {
+            GameObject itemObj = Instantiate(source.itemPrefab, outputAnchor.position, Quaternion.identity);
+            internalVisual = itemObj.GetComponent<ItemVisualizer>();
+            if (internalVisual == null) internalVisual = itemObj.AddComponent<ItemVisualizer>();
+
+            internalVisual.transform.SetParent(this.transform);
+            internalVisual.SetVisuals(internalItem);
+        }
     }
 
     void TryPushItem()
@@ -58,8 +67,8 @@ public class Unpacker : BuildingBase
 
         if (target != null && target.CanAcceptItem(GridPosition))
         {
-            target.ReceiveItem(internalCard, internalVisual);
-            internalCard = null;
+            target.ReceiveItem(internalItem, internalVisual);
+            internalItem = null;
             internalVisual = null;
         }
     }

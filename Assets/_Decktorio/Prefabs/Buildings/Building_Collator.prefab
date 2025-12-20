@@ -89,6 +89,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!65 &3253871179547237251
 BoxCollider:
@@ -123,9 +124,8 @@ GameObject:
   - component: {fileID: 3284062314918542895}
   - component: {fileID: 1662014139466756853}
   - component: {fileID: 7861584572946905102}
-  - component: {fileID: -1792579908219399719}
   m_Layer: 0
-  m_Name: Building_Assembler
+  m_Name: Building_Collator
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -202,6 +202,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!65 &7861584572946905102
 BoxCollider:
@@ -224,20 +225,3 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
---- !u!114 &-1792579908219399719
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6847701902936027944}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e96b6af7d04e10a439bf46d33a94e942, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Assembler
-  Definition: {fileID: 11400000, guid: 1451b7803676f4144b5ddde2dc4e29c0, type: 2}
-  showDebugLogs: 0
-  handSize: 5
-  craftingTime: 2
-  moneyBagPrefab: {fileID: 7423690509625886402, guid: e25e62141dd088d40ab3e139f9e5c353, type: 3}
