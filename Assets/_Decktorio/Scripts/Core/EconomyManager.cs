@@ -6,71 +6,92 @@ public class EconomyManager : MonoBehaviour
     public static EconomyManager Instance { get; private set; }
 
     [Header("Heist Settings")]
-    public float creditLimit = 5000f; // Game Over if Debt > this
-    public float interestRate = 0.05f; // 5% Interest
-    public float interestInterval = 10f; // Apply every 10s
+    public float creditLimit = 5000f; // Max Debt before Game Over
+    public float interestRate = 0.05f; // 5% Interest per MINUTE
 
     [Header("Current State")]
     public float currentDebt = 0f;
-    public float liquidCash = 0f; // "Profit" you have earned after paying debt
+    public float availableCash = 0f; // Liquid profit
     public bool isBusted = false;
 
-    // Events for UI
     public event Action OnEconomyUpdated;
+
+    private float logTimer = 0f;
 
     private void Awake()
     {
         Instance = this;
-        // Start the Interest Timer
-        InvokeRepeating(nameof(ApplyInterest), interestInterval, interestInterval);
     }
 
+    private void Update()
+    {
+        // Real-time Debt Accumulation
+        if (currentDebt > 0 && !isBusted)
+        {
+            // Interest Rate is per minute, so we divide by 60
+            float interestPerSecond = (currentDebt * interestRate) / 60f;
+            currentDebt += interestPerSecond * Time.deltaTime;
+
+            CheckBustState();
+            OnEconomyUpdated?.Invoke();
+
+            // Log throttling (Every 10 seconds)
+            logTimer += Time.deltaTime;
+            if (logTimer >= 10f)
+            {
+                logTimer = 0f;
+                GameLogger.Log($"[Economy] Debt: ${currentDebt:F0} (Growing by ${interestPerSecond * 10f:F1}/10s)");
+            }
+        }
+    }
+
+    // Check if we have enough Buying Power (Cash + Remaining Credit)
     public bool CanBuild(float cost)
     {
         if (isBusted) return false;
-        // You can build if adding the debt keeps you under the limit
-        return (currentDebt + cost) <= creditLimit;
+        float purchasingPower = availableCash + (creditLimit - currentDebt);
+        return cost <= purchasingPower;
     }
 
-    public void AddDebt(float cost)
+    // Spending Logic: Use Cash first, then Debt
+    public void SpendMoney(float amount)
     {
-        currentDebt += cost;
+        if (availableCash >= amount)
+        {
+            availableCash -= amount;
+        }
+        else
+        {
+            float remainder = amount - availableCash;
+            availableCash = 0;
+            currentDebt += remainder;
+        }
         CheckBustState();
         OnEconomyUpdated?.Invoke();
     }
 
-    public void ProcessPayout(float amount)
+    // Earning Logic: Pay Debt first, then store Cash
+    public void EarnMoney(float amount)
     {
-        // 1. Pay off Debt first
         if (currentDebt > 0)
         {
             float payment = Mathf.Min(currentDebt, amount);
             currentDebt -= payment;
-            amount -= payment; // Remaining cash
+            amount -= payment;
         }
 
-        // 2. Keep the rest as Liquid Cash (Profit)
         if (amount > 0)
         {
-            liquidCash += amount;
+            availableCash += amount;
         }
 
         CheckBustState();
         OnEconomyUpdated?.Invoke();
     }
 
-    private void ApplyInterest()
+    public void Refund(float amount)
     {
-        if (currentDebt > 0 && !isBusted)
-        {
-            // The Vig: Interest grows based on current debt
-            float interest = currentDebt * interestRate;
-            currentDebt += interest;
-
-            GameLogger.Log($"[Economy] Interest Applied: +${interest:F0}");
-            CheckBustState();
-            OnEconomyUpdated?.Invoke();
-        }
+        EarnMoney(amount); // Refunds behave exactly like earning money
     }
 
     private void CheckBustState()
@@ -78,14 +99,10 @@ public class EconomyManager : MonoBehaviour
         bool wasBusted = isBusted;
         isBusted = currentDebt >= creditLimit;
 
-        if (isBusted && !wasBusted)
+        if (isBusted != wasBusted)
         {
-            GameLogger.Log("BUSTED! Credit Limit Exceeded. Construction Halted.");
-            // Trigger Game Over Warning UI here
-        }
-        else if (!isBusted && wasBusted)
-        {
-            GameLogger.Log("Credit Restored. Back in business.");
+            if (isBusted) GameLogger.Log("BUSTED! Construction Halted.");
+            else GameLogger.Log("Credit Restored.");
         }
     }
 }

@@ -13,16 +13,15 @@ public class SelectionManager : MonoBehaviour
     [Header("Settings")]
     public LayerMask buildingLayer;
     public Color selectColor = Color.yellow;
-    public Color deleteColor = new Color(1f, 0.2f, 0.2f, 1f); // Red tint
+    public Color deleteColor = Color.red;
 
-    // --- STATE ---
+    // State
     private Vector2 startMousePos;
-    private bool isDragging;
-    private bool isDeconstructMode; // True = Deleting, False = Selecting
-
-    // Selection Cache
+    private bool isSelecting;
+    private bool isDeconstructMode; // Added back for right-click delete
     private List<BuildingBase> selectedBuildings = new List<BuildingBase>();
-    private BuildingBase[] sceneBuildingsCache;
+
+    // Cache for coloring
     private Dictionary<int, Color> originalColors = new Dictionary<int, Color>();
 
     // Copy/Paste Data
@@ -56,87 +55,80 @@ public class SelectionManager : MonoBehaviour
     {
         if (mouse == null || keyboard == null) return;
 
-        // CRITICAL FIX: Use the property that includes the LastCancelFrame check
+        // --- BRUTE FORCE FIX ---
+        // If BuildingSystem is active OR it just cancelled this frame, 
+        // we completely ignore input for this frame.
         if (BuildingSystem.Instance != null && BuildingSystem.Instance.IsBusyOrJustCancelled)
         {
             return;
         }
 
-        // 1. INPUT START (Only if NOT already dragging)
-        if (!isDragging)
+        // 1. Handle Selection Input
+        // Left Click = Select, Right Click = Deconstruct
+        bool leftClick = mouse.leftButton.wasPressedThisFrame;
+        bool rightClick = mouse.rightButton.wasPressedThisFrame;
+
+        if (!isSelecting && (leftClick || rightClick))
         {
-            // Left Click -> Normal Selection
-            if (mouse.leftButton.wasPressedThisFrame)
-            {
-                StartSelection(false);
-            }
-            // Right Click -> Deconstruct (Delete) Selection
-            else if (mouse.rightButton.wasPressedThisFrame)
-            {
-                StartSelection(true);
-            }
+            // Safety: Don't start dragging from (0,0)
+            if (mouse.position.ReadValue().sqrMagnitude < 1) return;
+
+            StartSelection(rightClick); // Pass true if right click (Deconstruct)
         }
 
-        // 2. INPUT DRAG & RELEASE
-        if (isDragging)
+        if (isSelecting)
         {
             UpdateSelectionBox();
-            UpdateHighlightPreview();
+            UpdateHighlightPreview(); // Visual feedback
 
-            // Release Left Click (Confirm Selection)
+            // Finish on Release
             if (!isDeconstructMode && mouse.leftButton.wasReleasedThisFrame)
             {
                 FinishSelection();
             }
-            // Release Right Click (Confirm Deletion)
             else if (isDeconstructMode && mouse.rightButton.wasReleasedThisFrame)
             {
                 FinishDeconstruction();
             }
         }
 
-        // 3. SHORTCUTS (Only when not dragging)
-        if (!isDragging && selectedBuildings.Count > 0)
+        // 2. Handle Shortcuts
+        if (selectedBuildings.Count > 0 && !isSelecting)
         {
-            // DELETE Key
+            // DELETE
             if (keyboard.deleteKey.wasPressedThisFrame)
             {
                 DeleteSelected();
             }
 
-            // COPY (Ctrl + C)
+            // COPY
             if (keyboard.ctrlKey.isPressed && keyboard.cKey.wasPressedThisFrame)
             {
                 CopySelection();
             }
         }
 
-        // PASTE (Ctrl + V)
-        if (!isDragging && clipboard.Count > 0 && keyboard.ctrlKey.isPressed && keyboard.vKey.wasPressedThisFrame)
+        // PASTE
+        if (clipboard.Count > 0 && keyboard.ctrlKey.isPressed && keyboard.vKey.wasPressedThisFrame)
         {
             PasteSelection();
         }
     }
 
-    void StartSelection(bool deconstructMode)
+    void StartSelection(bool deconstruct)
     {
-        if (!keyboard.shiftKey.isPressed || deconstructMode)
-        {
-            DeselectAll();
-        }
+        if (!keyboard.shiftKey.isPressed || deconstruct) DeselectAll();
 
         startMousePos = mouse.position.ReadValue();
-        isDragging = true;
-        isDeconstructMode = deconstructMode;
+        isSelecting = true;
+        isDeconstructMode = deconstruct;
 
         if (selectionBoxUI)
         {
             selectionBoxUI.gameObject.SetActive(true);
             var img = selectionBoxUI.GetComponent<UnityEngine.UI.Image>();
-            if (img) img.color = deconstructMode ? new Color(1, 0, 0, 0.2f) : new Color(0, 1, 1, 0.2f);
+            if (img) img.color = deconstruct ? new Color(1, 0, 0, 0.2f) : new Color(0, 1, 1, 0.2f);
         }
-
-        sceneBuildingsCache = FindObjectsByType<BuildingBase>(FindObjectsSortMode.None);
     }
 
     void UpdateSelectionBox()
@@ -153,70 +145,54 @@ public class SelectionManager : MonoBehaviour
 
     void UpdateHighlightPreview()
     {
-        HashSet<BuildingBase> currentFrameSelection = new HashSet<BuildingBase>();
+        // Simple bounding box check against all buildings
+        // (Optimized: In a real game, query the GridManager, but FindObjects is fine for <1000 items)
 
         Vector2 min = Vector2.Min(startMousePos, mouse.position.ReadValue());
         Vector2 max = Vector2.Max(startMousePos, mouse.position.ReadValue());
-        bool isClick = (max - min).magnitude < 5f;
 
-        if (isClick)
+        // Single click check
+        if ((max - min).magnitude < 5f)
         {
+            // Raycast for single object
             Ray ray = Camera.main.ScreenPointToRay(mouse.position.ReadValue());
             if (Physics.Raycast(ray, out RaycastHit hit, 1000f, buildingLayer))
             {
                 BuildingBase b = hit.collider.GetComponentInParent<BuildingBase>();
-                if (b != null) currentFrameSelection.Add(b);
+                if (b != null && !selectedBuildings.Contains(b)) HighlightBuilding(b);
             }
-        }
-        else if (sceneBuildingsCache != null)
-        {
-            foreach (var building in sceneBuildingsCache)
-            {
-                if (building == null) continue;
-                Vector3 screenPos = Camera.main.WorldToScreenPoint(building.transform.position);
-                if (screenPos.x > min.x && screenPos.x < max.x && screenPos.y > min.y && screenPos.y < max.y)
-                {
-                    currentFrameSelection.Add(building);
-                }
-            }
+            return;
         }
 
-        // Logic for Highlight / Restore
-
-        // 1. Un-highlight items that are NO LONGER in the selection
-        foreach (var b in selectedBuildings)
+        BuildingBase[] allBuildings = FindObjectsByType<BuildingBase>(FindObjectsSortMode.None);
+        foreach (var b in allBuildings)
         {
-            if (b != null && !currentFrameSelection.Contains(b))
+            Vector3 screenPos = Camera.main.WorldToScreenPoint(b.transform.position);
+            bool inBox = screenPos.x > min.x && screenPos.x < max.x && screenPos.y > min.y && screenPos.y < max.y;
+
+            if (inBox && !selectedBuildings.Contains(b))
             {
+                HighlightBuilding(b);
+            }
+            else if (!inBox && selectedBuildings.Contains(b))
+            {
+                // Note: This simple logic deselects items if you drag over them then away. 
+                // For "Shift+Add", logic would be more complex. Keeping it simple.
                 RestoreBuildingColor(b);
+                selectedBuildings.Remove(b);
             }
         }
-
-        // 2. Highlight items that are NEWLY in the selection
-        foreach (var b in currentFrameSelection)
-        {
-            if (!selectedBuildings.Contains(b))
-            {
-                SaveAndTintBuilding(b, isDeconstructMode ? deleteColor : selectColor);
-            }
-        }
-
-        // 3. Update the list
-        selectedBuildings = new List<BuildingBase>(currentFrameSelection);
     }
 
-    void SaveAndTintBuilding(BuildingBase b, Color c)
+    void HighlightBuilding(BuildingBase b)
     {
-        if (b == null) return;
+        selectedBuildings.Add(b);
         var r = b.GetComponentInChildren<Renderer>();
         if (r)
         {
             int id = r.GetInstanceID();
-            if (!originalColors.ContainsKey(id))
-            {
-                originalColors[id] = r.material.color;
-            }
-            r.material.color = c;
+            if (!originalColors.ContainsKey(id)) originalColors[id] = r.material.color;
+            r.material.color = isDeconstructMode ? deleteColor : selectColor;
         }
     }
 
@@ -224,50 +200,48 @@ public class SelectionManager : MonoBehaviour
     {
         if (b == null) return;
         var r = b.GetComponentInChildren<Renderer>();
-        if (r)
+        if (r && originalColors.TryGetValue(r.GetInstanceID(), out Color original))
         {
-            int id = r.GetInstanceID();
-            if (originalColors.TryGetValue(id, out Color original))
-            {
-                r.material.color = original;
-                originalColors.Remove(id);
-            }
+            r.material.color = original;
+            originalColors.Remove(r.GetInstanceID());
         }
     }
 
     void FinishSelection()
     {
-        isDragging = false;
-        sceneBuildingsCache = null;
+        isSelecting = false;
         if (selectionBoxUI) selectionBoxUI.gameObject.SetActive(false);
     }
 
     void FinishDeconstruction()
     {
-        isDragging = false;
-        sceneBuildingsCache = null;
-        if (selectionBoxUI) selectionBoxUI.gameObject.SetActive(false);
-
+        FinishSelection();
         DeleteSelected();
     }
 
     public void DeselectAll()
     {
-        foreach (var b in selectedBuildings)
-        {
-            RestoreBuildingColor(b);
-        }
+        foreach (var b in selectedBuildings) RestoreBuildingColor(b);
         selectedBuildings.Clear();
         originalColors.Clear();
     }
 
     void DeleteSelected()
     {
+        float totalRefund = 0;
         foreach (var b in selectedBuildings)
         {
             if (b != null)
+            {
+                if (b.Definition != null && BuildingSystem.Instance != null)
+                    totalRefund += b.Definition.baseDebtCost * (BuildingSystem.Instance.refundPercentage / 100f);
+
                 CasinoGridManager.Instance.RemoveBuilding(b.GridPosition);
+            }
         }
+
+        if (totalRefund > 0 && EconomyManager.Instance != null) EconomyManager.Instance.Refund(totalRefund);
+
         selectedBuildings.Clear();
         originalColors.Clear();
     }
@@ -276,7 +250,6 @@ public class SelectionManager : MonoBehaviour
     {
         clipboard.Clear();
         if (selectedBuildings.Count == 0) return;
-
         Vector2Int pivot = selectedBuildings[0].GridPosition;
 
         foreach (var b in selectedBuildings)
@@ -288,13 +261,12 @@ public class SelectionManager : MonoBehaviour
                 rotation = b.RotationIndex
             });
         }
-        Debug.Log($"[SelectionManager] Copied {clipboard.Count} items.");
+        Debug.Log($"Copied {clipboard.Count} items.");
     }
 
     void PasteSelection()
     {
-        if (clipboard.Count == 0) return;
-        BuildingSystem.Instance.StartPasteMode(clipboard);
+        if (clipboard.Count > 0) BuildingSystem.Instance.StartPasteMode(clipboard);
     }
 
     public List<BuildingBlueprint> GetClipboard() => clipboard;

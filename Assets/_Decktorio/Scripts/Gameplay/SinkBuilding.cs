@@ -44,7 +44,8 @@ public class SinkBuilding : BuildingBase
 
         if (EconomyManager.Instance != null)
         {
-            EconomyManager.Instance.ProcessPayout(finalPayout);
+            // FIX: Changed 'ProcessPayout' to 'EarnMoney' to match EconomyManager
+            EconomyManager.Instance.EarnMoney(finalPayout);
         }
     }
 

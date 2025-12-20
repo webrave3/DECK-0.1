@@ -89,6 +89,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!65 &9083661757941172875
 BoxCollider:
@@ -123,7 +124,7 @@ GameObject:
   - component: {fileID: 2264959464171461676}
   - component: {fileID: 3726467627841938831}
   m_Layer: 0
-  m_Name: Visuals_Corner_Right
+  m_Name: Visual_Corner_Right
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -199,6 +200,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &5158119214476670704
 GameObject:
@@ -273,6 +275,8 @@ MonoBehaviour:
   Definition: {fileID: 11400000, guid: 6b13dd0140942e2459d2dfb60478d8b1, type: 2}
   showDebugLogs: 0
   itemHeightOffset: 0.15
+  forwardVisualOffset: 0.5
+  speedModifier: 1
 --- !u!114 &3468836182751824640
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -377,6 +381,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!65 &4640431803789631558
 BoxCollider:
@@ -411,7 +416,7 @@ GameObject:
   - component: {fileID: 2337963563988957107}
   - component: {fileID: 6780427095686541083}
   m_Layer: 0
-  m_Name: Visuals_Corner_Left
+  m_Name: Visual_Corner_Left
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -487,6 +492,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &8334143645344488141
 GameObject:
@@ -500,7 +506,7 @@ GameObject:
   - component: {fileID: 836672211250877980}
   - component: {fileID: 8416691267244337298}
   m_Layer: 0
-  m_Name: Visuals_Straight
+  m_Name: Visual_Straight
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -578,4 +584,5 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}

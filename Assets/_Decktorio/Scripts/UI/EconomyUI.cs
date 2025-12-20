@@ -17,6 +17,9 @@ public class EconomyUI : MonoBehaviour
             EconomyManager.Instance.OnEconomyUpdated += UpdateUI;
             UpdateUI(); // Initial refresh
         }
+
+        // Ensure slider is not interactive (it's a meter)
+        if (debtSlider != null) debtSlider.interactable = false;
     }
 
     private void OnDestroy()
@@ -27,14 +30,15 @@ public class EconomyUI : MonoBehaviour
 
     private void UpdateUI()
     {
-        float current = EconomyManager.Instance.currentDebt;
+        float debt = EconomyManager.Instance.currentDebt;
         float max = EconomyManager.Instance.creditLimit;
-        float profit = EconomyManager.Instance.liquidCash;
+        float cash = EconomyManager.Instance.availableCash;
 
         // Update Slider
-        if (debtSlider != null)
+        if (debtSlider != null && max > 0)
         {
-            debtSlider.value = current / max;
+            // Value is % of credit limit used
+            debtSlider.value = debt / max;
 
             // Visual Flair: Turn Red if near limit
             if (fillImage != null)
@@ -44,7 +48,7 @@ public class EconomyUI : MonoBehaviour
         }
 
         // Update Text
-        if (debtText != null) debtText.text = $"DEBT: ${current:F0} / ${max:F0}";
-        if (cashText != null) cashText.text = $"CASH: ${profit:F0}";
+        if (debtText != null) debtText.text = $"DEBT: ${debt:F0} / ${max:F0}";
+        if (cashText != null) cashText.text = $"CASH: ${cash:F0}";
     }
 }
