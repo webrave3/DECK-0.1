@@ -90,6 +90,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!65 &6883128800680907684
 BoxCollider:
@@ -124,6 +125,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 489413b9c072ca849ad86d199f4c3528, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SinkBuilding
-  Definition: {fileID: 0}
+  Definition: {fileID: 11400000, guid: 35919a5af52c76b4eba8f6d8fc70df34, type: 2}
+  showDebugLogs: 0
   isIncinerator: 0
   sellMultiplier: 1
