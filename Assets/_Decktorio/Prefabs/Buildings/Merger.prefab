@@ -125,6 +125,7 @@ GameObject:
   - component: {fileID: 207995703054021232}
   - component: {fileID: 2779346397202716570}
   - component: {fileID: -3621743880138569105}
+  - component: {fileID: -7684739021326223543}
   m_Layer: 0
   m_Name: Merger
   m_TagString: Untagged
@@ -240,3 +241,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Merger
   Definition: {fileID: 11400000, guid: f7cf441da0fbd9b499732446b51f10bb, type: 2}
   showDebugLogs: 0
+  internalItem:
+    contents: []
+    velocityBonus: 1
+    valueMultiplier: 1
+--- !u!114 &-7684739021326223543
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3683560350380229678}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5e8f500373c2aae4f8b66eb85dee4c7b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HoverInfo
+  objectName: 
+  staticDescription: 

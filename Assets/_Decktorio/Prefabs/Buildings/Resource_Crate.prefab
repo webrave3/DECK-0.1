@@ -89,6 +89,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!65 &6260789925661313736
 BoxCollider:
@@ -124,6 +125,7 @@ GameObject:
   - component: {fileID: 7411458234179725299}
   - component: {fileID: 7185679749571224323}
   - component: {fileID: 2219291725449723013}
+  - component: {fileID: 6974256899391127310}
   m_Layer: 0
   m_Name: Resource_Crate
   m_TagString: Untagged
@@ -202,6 +204,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!65 &7185679749571224323
 BoxCollider:
@@ -238,6 +241,24 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SupplyDrop
   Definition: {fileID: 0}
   showDebugLogs: 0
+  internalItem:
+    contents: []
+    velocityBonus: 1
+    valueMultiplier: 1
   itemPrefab: {fileID: 3028812445738917325, guid: d03acbce6a1c13f4497f37492b160b4c, type: 3}
   suit: 1
   rank: 1
+--- !u!114 &6974256899391127310
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6784432648708019465}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5e8f500373c2aae4f8b66eb85dee4c7b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HoverInfo
+  objectName: 
+  staticDescription: 

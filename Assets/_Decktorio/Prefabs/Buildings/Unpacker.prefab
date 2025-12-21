@@ -124,10 +124,10 @@ GameObject:
   - component: {fileID: 3284062314918542895}
   - component: {fileID: 1662014139466756853}
   - component: {fileID: 7861584572946905102}
-  - component: {fileID: 195019815613890195}
-  - component: {fileID: 3663295745135753336}
+  - component: {fileID: -2798690212387202738}
+  - component: {fileID: 6991815358289332873}
   m_Layer: 0
-  m_Name: Building_Collator
+  m_Name: Unpacker
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -182,7 +182,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 178b31250a032a846abb2b46baed0152, type: 2}
+  - {fileID: 2100000, guid: 8b8fa1db71848984581b6f1937bc5695, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -227,29 +227,7 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
---- !u!114 &195019815613890195
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6847701902936027944}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1f6ef1d89c2f130448aaa453b7410450, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Collator
-  Definition: {fileID: 11400000, guid: 1451b7803676f4144b5ddde2dc4e29c0, type: 2}
-  showDebugLogs: 0
-  internalItem:
-    contents: []
-    velocityBonus: 1
-    valueMultiplier: 1
-  maxCapacity: 5
-  processTime: 0.5
-  smartEject: 1
-  stackVisualPrefab: {fileID: 7565947318712671885, guid: fafff7167bab45c478e2a683c8eb547e, type: 3}
---- !u!114 &3663295745135753336
+--- !u!114 &-2798690212387202738
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -263,3 +241,28 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::HoverInfo
   objectName: 
   staticDescription: 
+--- !u!114 &6991815358289332873
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6847701902936027944}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dd9ecf8e0397b564bbb6a198f0146abd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Unpacker
+  Definition: {fileID: 11400000, guid: 5702dbedddbbe364a824b34149bccf12, type: 2}
+  showDebugLogs: 0
+  internalItem:
+    contents:
+    - uid: 
+      rank: 2
+      suit: 1
+      material: 0
+      ink: 0
+    velocityBonus: 1
+    valueMultiplier: 1
+  productionSpeed: 5
+  outputAnchor: {fileID: 0}

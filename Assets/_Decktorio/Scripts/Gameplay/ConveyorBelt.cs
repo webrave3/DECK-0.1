@@ -3,8 +3,11 @@ using UnityEngine;
 public class ConveyorBelt : BuildingBase
 {
     [Header("Visuals")]
-    public float itemHeightOffset = 0.15f;
-    public float forwardVisualOffset = 0.5f;
+    public float itemHeightOffset = 0.2f; // Slightly higher to sit ON the belt
+
+    // Set to 0.0f for Center-to-Center movement (Smoothest)
+    // Set to 0.5f if you want them to sit at the edge (Can cause snapping)
+    public float forwardVisualOffset = 0.0f;
 
     [Header("Gameplay")]
     public float speedModifier = 1.0f;
@@ -16,9 +19,12 @@ public class ConveyorBelt : BuildingBase
     protected override void Start()
     {
         base.Start();
+
+        // Find children safely
         visualStraight = transform.Find("Visual_Straight");
         visualLeft = transform.Find("Visual_Corner_Left");
         visualRight = transform.Find("Visual_Corner_Right");
+
         UpdateVisuals();
     }
 
@@ -37,14 +43,16 @@ public class ConveyorBelt : BuildingBase
         if (visualLeft) visualLeft.gameObject.SetActive(false);
         if (visualRight) visualRight.gameObject.SetActive(false);
 
-        // Simple Corner Logic (Straight is default fallback)
-        if (inputLeft)
+        // Simple Corner Logic
+        if (inputLeft && !inputBack)
         {
             if (visualLeft) visualLeft.gameObject.SetActive(true);
+            else if (visualStraight) visualStraight.gameObject.SetActive(true); // Fallback
         }
-        else if (inputRight)
+        else if (inputRight && !inputBack)
         {
             if (visualRight) visualRight.gameObject.SetActive(true);
+            else if (visualStraight) visualStraight.gameObject.SetActive(true); // Fallback
         }
         else
         {
@@ -55,7 +63,9 @@ public class ConveyorBelt : BuildingBase
     private void CheckNeighbor(Vector2Int pos, ref bool hasInput)
     {
         BuildingBase b = CasinoGridManager.Instance.GetBuildingAt(pos);
-        if (b != null && b is ConveyorBelt && b.GetForwardGridPosition() == GridPosition) hasInput = true;
+        // Only connect visually if the neighbor is pointing AT us
+        if (b != null && b is ConveyorBelt && b.GetForwardGridPosition() == GridPosition)
+            hasInput = true;
     }
 
     protected override void OnTick(int tick)
@@ -65,34 +75,32 @@ public class ConveyorBelt : BuildingBase
 
     private void TryPushItem()
     {
-        if (AttemptPush(GetForwardGridPosition())) return;
-    }
+        Vector2Int forwardPos = GetForwardGridPosition();
 
-    private bool AttemptPush(Vector2Int targetPos)
-    {
-        BuildingBase target = CasinoGridManager.Instance.GetBuildingAt(targetPos);
+        // Use the GridManager to find target
+        BuildingBase target = CasinoGridManager.Instance.GetBuildingAt(forwardPos);
+
         if (target != null && target.CanAcceptItem(GridPosition))
         {
             internalItem.velocityBonus = this.speedModifier;
             target.ReceiveItem(internalItem, internalVisual);
+
             internalItem = null;
             internalVisual = null;
-            return true;
         }
-        return false;
     }
 
     public override bool CanAcceptItem(Vector2Int fromPos)
     {
-        if (internalItem != null || incomingItem != null) return false;
-        if (fromPos == GetForwardGridPosition()) return false;
-        return true;
-    }
+        // 1. Basic Capacity Check
+        if (incomingItem != null || internalItem != null) return false;
 
-    public override bool CanBePlacedAt(Vector2Int gridPos)
-    {
-        if (CasinoGridManager.Instance.GetResourceAt(gridPos) != null) return false;
-        return base.CanBePlacedAt(gridPos);
+        // 2. (Optional) Strict Direction Check
+        // Uncomment this to force items to enter from the back only
+        // Vector2Int backPos = GridPosition - GetForwardVector();
+        // if (fromPos != backPos) return false; 
+
+        return true;
     }
 
     protected override void OnItemArrived()
@@ -100,17 +108,31 @@ public class ConveyorBelt : BuildingBase
         if (internalVisual != null)
         {
             internalVisual.transform.SetParent(this.transform);
-            Vector3 worldForward = (CasinoGridManager.Instance.GridToWorld(GetForwardGridPosition()) - transform.position).normalized;
-            Vector3 targetPos = transform.position + (Vector3.up * itemHeightOffset) + (worldForward * forwardVisualOffset);
-            float duration = TickManager.Instance.tickRate;
-            internalVisual.InitializeMovement(targetPos, duration);
+
+            // Calculate Target: Center of this tile + Up Offset
+            Vector3 targetPos = transform.position + (Vector3.up * itemHeightOffset);
+
+            // Optional: If you really want the forward offset
+            if (forwardVisualOffset != 0)
+            {
+                Vector3 worldForward = (CasinoGridManager.Instance.GridToWorld(GetForwardGridPosition()) - transform.position).normalized;
+                targetPos += worldForward * forwardVisualOffset;
+            }
+
+            // Duration is ignored by the new ItemVisualizer (it uses Tick interpolation)
+            internalVisual.InitializeMovement(targetPos, TickManager.Instance.tickRate);
         }
     }
 
-    // Helpers
+    // --- Helpers ---
     public Vector2Int GetLeftGridPosition() => GridPosition + GetDirFromIndex((RotationIndex + 3) % 4);
     public Vector2Int GetRightGridPosition() => GridPosition + GetDirFromIndex((RotationIndex + 1) % 4);
     public Vector2Int GetBackGridPosition() => GridPosition + GetDirFromIndex((RotationIndex + 2) % 4);
+
+    public Vector2Int GetForwardVector()
+    {
+        return GetDirFromIndex(RotationIndex);
+    }
 
     public static Vector2Int GetDirFromIndex(int index)
     {

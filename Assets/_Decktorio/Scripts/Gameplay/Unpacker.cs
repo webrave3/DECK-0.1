@@ -1,59 +1,84 @@
 using UnityEngine;
 
-// NOTE: This acts as a "Resource Extractor" based on your original code.
-// Consider renaming to "CardPress" or "Extractor" later.
 public class Unpacker : BuildingBase
 {
     [Header("Production")]
-    public float productionSpeed = 5f;
+    public float productionSpeed = 3f;
+
+    [Tooltip("Where the item visually appears. If empty, uses building center.")]
     public Transform outputAnchor;
 
     private float progress = 0;
+    private SupplyDrop linkedResource;
 
-    // Only placeable on SupplyDrops (Resources)
+    // Only placeable on SupplyDrops
     public override bool CanBePlacedAt(Vector2Int gridPos)
     {
         return CasinoGridManager.Instance.GetResourceAt(gridPos) != null;
     }
 
+    protected override void Start()
+    {
+        base.Start();
+        // Cache the resource node we are sitting on
+        linkedResource = CasinoGridManager.Instance.GetResourceAt(GridPosition);
+
+        // Debug warning if no resource found (just in case)
+        if (linkedResource == null)
+        {
+            // Optional: You might want to log this if testing
+            // GameLogger.Log($"Unpacker at {GridPosition} has no resource below it!");
+        }
+    }
+
     protected override void OnTick(int tick)
     {
+        // 1. If output is full, try to push and do nothing else
         if (internalItem != null)
         {
             TryPushItem();
             return;
         }
-        TryMine();
-    }
 
-    void TryMine()
-    {
-        SupplyDrop drop = CasinoGridManager.Instance.GetResourceAt(GridPosition);
-        if (drop != null)
+        // 2. If we have a resource, mine it
+        if (linkedResource != null)
         {
-            progress += 1f;
+            progress += TickManager.Instance.tickRate;
             if (progress >= productionSpeed)
             {
                 progress = 0;
-                SpawnItem(drop);
+                SpawnFromResource();
             }
         }
     }
 
-    void SpawnItem(SupplyDrop source)
+    void SpawnFromResource()
     {
-        // 1. Create Data (Single Card struct)
-        CardData newCard = new CardData(source.rank, source.suit);
+        if (linkedResource == null) return;
 
-        // 2. Wrap in Payload (Stack of 1)
-        internalItem = new ItemPayload(newCard);
+        // 1. Create Data based on the Node's settings
+        CardData newData = new CardData(
+            linkedResource.rank,
+            linkedResource.suit,
+            linkedResource.material,
+            linkedResource.ink
+        );
 
-        // 3. Create Visual
-        if (source.itemPrefab != null && outputAnchor != null)
+        // 2. Wrap in Payload
+        internalItem = new ItemPayload(newData);
+
+        // 3. Create Visuals
+        if (linkedResource.outputPrefab != null)
         {
-            GameObject itemObj = Instantiate(source.itemPrefab, outputAnchor.position, Quaternion.identity);
-            internalVisual = itemObj.GetComponent<ItemVisualizer>();
-            if (internalVisual == null) internalVisual = itemObj.AddComponent<ItemVisualizer>();
+            // FIX: Check if outputAnchor exists. If not, use transform.position + Up offset
+            Vector3 spawnPos = (outputAnchor != null)
+                ? outputAnchor.position
+                : transform.position + Vector3.up * 0.5f;
+
+            GameObject visualObj = Instantiate(linkedResource.outputPrefab, spawnPos, Quaternion.identity);
+
+            internalVisual = visualObj.GetComponent<ItemVisualizer>();
+            if (internalVisual == null) internalVisual = visualObj.AddComponent<ItemVisualizer>();
 
             internalVisual.transform.SetParent(this.transform);
             internalVisual.SetVisuals(internalItem);
@@ -62,8 +87,8 @@ public class Unpacker : BuildingBase
 
     void TryPushItem()
     {
-        Vector2Int forwardPos = GetForwardGridPosition();
-        BuildingBase target = CasinoGridManager.Instance.GetBuildingAt(forwardPos);
+        Vector2Int forward = GetForwardGridPosition();
+        var target = CasinoGridManager.Instance.GetBuildingAt(forward);
 
         if (target != null && target.CanAcceptItem(GridPosition))
         {

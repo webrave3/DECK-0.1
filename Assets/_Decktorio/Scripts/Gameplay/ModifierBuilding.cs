@@ -2,7 +2,8 @@ using UnityEngine;
 
 public class ModifierBuilding : BuildingBase
 {
-    public enum ModificationType { SetSuit, SetRank, SetColor }
+    // Updated to match new Card Layers (Ink instead of Color)
+    public enum ModificationType { SetSuit, SetRank, SetInk, SetMaterial }
 
     [Header("Modifier Configuration")]
     public ModificationType operation;
@@ -11,14 +12,17 @@ public class ModifierBuilding : BuildingBase
     public CardSuit targetSuit = CardSuit.Heart;
 
     [Tooltip("Used if Operation is SetRank")]
-    [Range(1, 13)]
-    public int targetRank = 1;
+    [Range(2, 14)] // Updated range for Ace High logic
+    public int targetRank = 2;
 
-    [Tooltip("Used if Operation is SetColor")]
-    public CardColor targetColor = CardColor.Red;
+    [Tooltip("Used if Operation is SetInk")]
+    public CardInk targetInk = CardInk.Standard;
+
+    [Tooltip("Used if Operation is SetMaterial")]
+    public CardMaterial targetMaterial = CardMaterial.Cardstock;
 
     [Header("Processing")]
-    public float processingTime = 1.0f; // Changed to float for TickManager
+    public float processingTime = 1.0f;
     private float processTimer = 0f;
 
     protected override void OnTick(int tick)
@@ -55,7 +59,7 @@ public class ModifierBuilding : BuildingBase
         {
             CardData card = item.contents[i];
 
-            // 1. Apply Logic
+            // 1. Apply Logic based on new Layered System
             switch (operation)
             {
                 case ModificationType.SetRank:
@@ -63,14 +67,12 @@ public class ModifierBuilding : BuildingBase
                     break;
                 case ModificationType.SetSuit:
                     card.suit = targetSuit;
-                    // Auto-update color to match suit (Standard Deck rules)
-                    if (targetSuit == CardSuit.Heart || targetSuit == CardSuit.Diamond)
-                        card.color = CardColor.Red;
-                    else
-                        card.color = CardColor.Black;
                     break;
-                case ModificationType.SetColor:
-                    card.color = targetColor;
+                case ModificationType.SetInk:
+                    card.ink = targetInk;
+                    break;
+                case ModificationType.SetMaterial:
+                    card.material = targetMaterial;
                     break;
             }
 

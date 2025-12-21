@@ -89,6 +89,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!65 &5948555025734100948
 BoxCollider:
@@ -200,6 +201,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!65 &7096613255031657822
 BoxCollider:
@@ -235,6 +237,7 @@ GameObject:
   - component: {fileID: 207995703054021232}
   - component: {fileID: 2779346397202716570}
   - component: {fileID: 615409730092450081}
+  - component: {fileID: -3831175981619009986}
   m_Layer: 0
   m_Name: Splitter
   m_TagString: Untagged
@@ -315,6 +318,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!65 &2779346397202716570
 BoxCollider:
@@ -351,6 +355,24 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Splitter
   Definition: {fileID: 11400000, guid: 322765c44e77dac458c4bc8d51b34e21, type: 2}
   showDebugLogs: 0
+  internalItem:
+    contents: []
+    velocityBonus: 1
+    valueMultiplier: 1
+--- !u!114 &-3831175981619009986
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3683560350380229678}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5e8f500373c2aae4f8b66eb85dee4c7b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HoverInfo
+  objectName: 
+  staticDescription: 
 --- !u!1 &6819228834628062958
 GameObject:
   m_ObjectHideFlags: 0
@@ -440,6 +462,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!65 &5506669653516481392
 BoxCollider:

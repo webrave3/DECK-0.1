@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 5709473086948585053}
   - component: {fileID: 6420143805673768827}
   - component: {fileID: 1149513888370489519}
+  - component: {fileID: -7287736136881482667}
   m_Layer: 0
   m_Name: Incinerator
   m_TagString: Untagged
@@ -127,5 +128,23 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SinkBuilding
   Definition: {fileID: 11400000, guid: 63f8b182ae68dca4aa8066000ea5aa6d, type: 2}
   showDebugLogs: 0
+  internalItem:
+    contents: []
+    velocityBonus: 1
+    valueMultiplier: 1
   isIncinerator: 1
   sellMultiplier: 1
+--- !u!114 &-7287736136881482667
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7578477286818658747}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5e8f500373c2aae4f8b66eb85dee4c7b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HoverInfo
+  objectName: 
+  staticDescription: 

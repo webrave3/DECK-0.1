@@ -10,7 +10,7 @@ public abstract class BuildingBase : MonoBehaviour
     public bool showDebugLogs = false;
 
     // MAIN INVENTORY (What is currently on the belt)
-    protected ItemPayload internalItem;
+    public ItemPayload internalItem;
     protected ItemVisualizer internalVisual;
 
     // MAILBOX (Buffer for the NEXT tick)

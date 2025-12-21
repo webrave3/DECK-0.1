@@ -10,12 +10,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fb2a1ec045c7c364a86089a07ac459b7, type: 3}
-  m_Name: Def_Unpacker
+  m_Name: Def_UniversalProcessor
   m_EditorClassIdentifier: Assembly-CSharp::BuildingDefinition
-  id: 
-  displayName: 
-  prefab: {fileID: 6847701902936027944, guid: 1651438b72457d7438e3d967cb0477d4, type: 3}
-  visualGhost: {fileID: 0}
-  icon: {fileID: 0}
-  baseDebtCost: 10
-  size: {x: 1, y: 1}
+  buildingName: ModifierBuilding
+  prefab: {fileID: 5876896542447568243, guid: e3f26a3d752faf34a9edb83d3574d7d9, type: 3}
+  width: 2
+  height: 2
+  cost: 5
+  description: 

@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c9d6035a464921348bc5aa667a7e7b5d, type: 3}
+  m_Name: Recipe_Drill_Ace
+  m_EditorClassIdentifier: Assembly-CSharp::RecipeSO
+  requiredSuit: 0
+  requiredRank: 0
+  requiredMaterial: 0
+  processingTime: 2
+  moneyCost: 0
+  changeSuit: 0
+  targetSuit: 0
+  changeRank: 1
+  targetRank: 14
+  changeMaterial: 0
+  targetMaterial: 0
+  changeInk: 0
+  targetInk: 0

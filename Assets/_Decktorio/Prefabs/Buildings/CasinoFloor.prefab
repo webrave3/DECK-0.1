@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 5425087435931341525}
   - component: {fileID: 6883128800680907684}
   - component: {fileID: 3602709534512947508}
+  - component: {fileID: 2941863333687568284}
   m_Layer: 0
   m_Name: CasinoFloor
   m_TagString: Untagged
@@ -127,5 +128,23 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SinkBuilding
   Definition: {fileID: 11400000, guid: 35919a5af52c76b4eba8f6d8fc70df34, type: 2}
   showDebugLogs: 0
+  internalItem:
+    contents: []
+    velocityBonus: 1
+    valueMultiplier: 1
   isIncinerator: 0
   sellMultiplier: 1
+--- !u!114 &2941863333687568284
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6909013774422106192}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5e8f500373c2aae4f8b66eb85dee4c7b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HoverInfo
+  objectName: 
+  staticDescription: 

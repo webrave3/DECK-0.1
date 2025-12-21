@@ -125,6 +125,7 @@ GameObject:
   - component: {fileID: 1225757699811879893}
   - component: {fileID: 4867074721157869081}
   - component: {fileID: 1027129486114793677}
+  - component: {fileID: 8525046596140187458}
   m_Layer: 0
   m_Name: Building_Sorter
   m_TagString: Untagged
@@ -240,5 +241,23 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Sorter
   Definition: {fileID: 11400000, guid: 5d0699529716f6c4495467b9c0cb03b5, type: 2}
   showDebugLogs: 0
+  internalItem:
+    contents: []
+    velocityBonus: 1
+    valueMultiplier: 1
   filterSuit: 1
   itemHeightOffset: 0.2
+--- !u!114 &8525046596140187458
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7860746897655859928}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5e8f500373c2aae4f8b66eb85dee4c7b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HoverInfo
+  objectName: 
+  staticDescription: 

@@ -214,6 +214,7 @@ GameObject:
   - component: {fileID: 8189591975760725226}
   - component: {fileID: 4904571326407133829}
   - component: {fileID: 3468836182751824640}
+  - component: {fileID: -2807306370777241772}
   m_Layer: 0
   m_Name: Building_Belt
   m_TagString: Untagged
@@ -274,6 +275,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ConveyorBelt
   Definition: {fileID: 11400000, guid: 6b13dd0140942e2459d2dfb60478d8b1, type: 2}
   showDebugLogs: 0
+  internalItem:
+    contents: []
+    velocityBonus: 1
+    valueMultiplier: 1
   itemHeightOffset: 0.15
   forwardVisualOffset: 0.5
   speedModifier: 1
@@ -292,6 +297,20 @@ MonoBehaviour:
   straightModel: {fileID: 8334143645344488141}
   cornerLeftModel: {fileID: 7115387473783548823}
   cornerRightModel: {fileID: 4366685139927243619}
+--- !u!114 &-2807306370777241772
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5158119214476670704}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5e8f500373c2aae4f8b66eb85dee4c7b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HoverInfo
+  objectName: 
+  staticDescription: 
 --- !u!1 &5332744471538473044
 GameObject:
   m_ObjectHideFlags: 0
