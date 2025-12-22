@@ -8,6 +8,8 @@ public abstract class BuildingBase : MonoBehaviour
 
     [Header("Debug")]
     public bool showDebugLogs = false;
+    // CRITICAL: New flag to stop ghosts from acting like real buildings
+    public bool isGhost = false;
 
     // MAIN INVENTORY (What is currently on the belt)
     public ItemPayload internalItem;
@@ -19,20 +21,41 @@ public abstract class BuildingBase : MonoBehaviour
 
     protected virtual void Start()
     {
+        // GHOST CHECK: If this is a preview object, DO NOT RUN LOGIC
+        if (isGhost) return;
+
+        // --- SAFETY REGISTRATION ---
+        Vector2Int truePos = CasinoGridManager.Instance.WorldToGrid(transform.position);
+        if (CasinoGridManager.Instance.GetBuildingAt(truePos) != this)
+        {
+            Setup(truePos);
+            CasinoGridManager.Instance.RegisterBuilding(truePos, this);
+            if (showDebugLogs) Debug.Log($"<color=green>[{name}]</color> Auto-Registered at {truePos}");
+        }
+        // ---------------------------
+
         if (TickManager.Instance != null)
             TickManager.Instance.OnTick += HandleTickSystem;
     }
 
     protected virtual void OnDestroy()
     {
+        if (isGhost) return;
+
         if (TickManager.Instance != null)
             TickManager.Instance.OnTick -= HandleTickSystem;
 
         if (internalVisual != null) Destroy(internalVisual.gameObject);
         if (incomingVisual != null) Destroy(incomingVisual.gameObject);
+
+        // Safety: If we are destroyed, free the grid cell
+        if (CasinoGridManager.Instance != null && CasinoGridManager.Instance.GetBuildingAt(GridPosition) == this)
+        {
+            CasinoGridManager.Instance.RemoveBuilding(GridPosition);
+        }
     }
 
-    // --- INITIALIZATION (Fixes CS1061 Error) ---
+    // --- INITIALIZATION ---
     public virtual void Initialize(Vector2Int pos, int rot)
     {
         Setup(pos);
@@ -66,10 +89,12 @@ public abstract class BuildingBase : MonoBehaviour
 
     private void HandleTickSystem(int tick)
     {
-        // 1. Process Logic (Try to push 'Internal' out)
+        if (isGhost) return;
+
+        // 1. Process Logic
         OnTick(tick);
 
-        // 2. Move Mailbox to Internal (If Internal is now empty)
+        // 2. Move Mailbox to Internal
         if (incomingItem != null && internalItem == null)
         {
             internalItem = incomingItem;
@@ -91,7 +116,6 @@ public abstract class BuildingBase : MonoBehaviour
         if (internalVisual != null)
         {
             internalVisual.transform.SetParent(this.transform);
-            // Visual smoothing: Move to center
             float duration = TickManager.Instance.tickRate;
             internalVisual.InitializeMovement(transform.position + Vector3.up * 0.2f, duration);
         }
@@ -99,7 +123,7 @@ public abstract class BuildingBase : MonoBehaviour
 
     public virtual bool CanAcceptItem(Vector2Int fromPos)
     {
-        // Double Buffering: Only reject if the MAILBOX is full. 
+        if (isGhost) return false;
         if (incomingItem != null) return false;
         return true;
     }

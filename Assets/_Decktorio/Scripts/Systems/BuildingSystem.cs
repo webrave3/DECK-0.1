@@ -3,6 +3,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.EventSystems;
 using System.Collections.Generic;
 using System.Collections;
+using System;
 
 public class BuildingSystem : MonoBehaviour
 {
@@ -63,16 +64,12 @@ public class BuildingSystem : MonoBehaviour
     public bool IsBuildingOrPasteActive() => selectedBuilding != null || (pasteClipboard != null && pasteClipboard.Count > 0);
 
     // --- BRUTE FORCE CONTROL ---
-    // We disable SelectionManager entirely when building to prevent conflicts
     private void SetSelectionManagerActive(bool active)
     {
         if (SelectionManager.Instance != null)
         {
             if (active)
             {
-                // We wait 1 frame before enabling it.
-                // This prevents the "Right Click" that cancelled the building from 
-                // instantly triggering a marquee selection in the same frame.
                 StartCoroutine(EnableSelectionManagerDelayed());
             }
             else
@@ -84,7 +81,7 @@ public class BuildingSystem : MonoBehaviour
 
     private IEnumerator EnableSelectionManagerDelayed()
     {
-        yield return null; // Wait for end of frame/next frame
+        yield return null;
         if (SelectionManager.Instance != null)
         {
             SelectionManager.Instance.enabled = true;
@@ -94,13 +91,8 @@ public class BuildingSystem : MonoBehaviour
 
     public void SelectBuilding(BuildingDefinition def)
     {
-        // 1. Clean up previous state
         Deselect(disableSelectionManager: false);
-
-        // 2. Disable SelectionManager so it can't interfere
         SetSelectionManagerActive(false);
-
-        // 3. Set up new building
         selectedBuilding = def;
         CreateSingleGhost();
     }
@@ -112,7 +104,6 @@ public class BuildingSystem : MonoBehaviour
         pasteClipboard = new List<SelectionManager.BuildingBlueprint>(clipboard);
     }
 
-    // Modified Deselect to handle the toggle
     public void Deselect(bool disableSelectionManager = true)
     {
         selectedBuilding = null;
@@ -121,7 +112,6 @@ public class BuildingSystem : MonoBehaviour
 
         if (disableSelectionManager)
         {
-            // Re-enable SelectionManager (with delay)
             SetSelectionManagerActive(true);
         }
     }
@@ -151,7 +141,6 @@ public class BuildingSystem : MonoBehaviour
 
             if (IsBuildingOrPasteActive())
             {
-                // This triggers Deselect(), which re-enables SelectionManager next frame
                 Deselect();
                 return;
             }
@@ -206,6 +195,13 @@ public class BuildingSystem : MonoBehaviour
     {
         if (singleGhost != null) Destroy(singleGhost);
         singleGhost = Instantiate(selectedBuilding.prefab);
+
+        // --- FIX: Disable Logic Script Immediately ---
+        // This prevents the ghost from running Start() and registering itself in the grid
+        BuildingBase logic = singleGhost.GetComponent<BuildingBase>();
+        if (logic != null) logic.enabled = false;
+        // ---------------------------------------------
+
         CleanupGhostVisuals(singleGhost);
     }
 
@@ -239,6 +235,12 @@ public class BuildingSystem : MonoBehaviour
             {
                 Destroy(g);
                 g = Instantiate(selectedBuilding.prefab);
+
+                // --- FIX: Disable Logic Script Immediately ---
+                BuildingBase logic = g.GetComponent<BuildingBase>();
+                if (logic != null) logic.enabled = false;
+                // ---------------------------------------------
+
                 CleanupGhostVisuals(g);
                 dragGhosts[i] = g;
             }
@@ -247,8 +249,8 @@ public class BuildingSystem : MonoBehaviour
             g.transform.rotation = Quaternion.Euler(0, data.rot * 90, 0);
             g.SetActive(true);
 
-            BuildingBase logic = g.GetComponent<BuildingBase>();
-            bool valid = IsValidPlacement(data.pos, logic);
+            BuildingBase ghostLogic = g.GetComponent<BuildingBase>();
+            bool valid = IsValidPlacement(data.pos, ghostLogic);
             totalCost += selectedBuilding.baseDebtCost;
             if (EconomyManager.Instance != null && !EconomyManager.Instance.CanBuild(totalCost)) valid = false;
 
@@ -341,6 +343,12 @@ public class BuildingSystem : MonoBehaviour
             {
                 Destroy(g);
                 g = Instantiate(bp.definition.prefab);
+
+                // --- FIX: Disable Logic Script ---
+                BuildingBase logic = g.GetComponent<BuildingBase>();
+                if (logic != null) logic.enabled = false;
+                // ---------------------------------
+
                 CleanupGhostVisuals(g);
                 dragGhosts[i] = g;
             }
@@ -348,8 +356,9 @@ public class BuildingSystem : MonoBehaviour
             g.transform.position = CasinoGridManager.Instance.GridToWorld(targetPos);
             g.transform.rotation = Quaternion.Euler(0, bp.rotation * 90, 0);
             g.SetActive(true);
-            BuildingBase logic = g.GetComponent<BuildingBase>();
-            bool valid = IsValidPlacement(targetPos, logic);
+
+            BuildingBase ghostLogic = g.GetComponent<BuildingBase>();
+            bool valid = IsValidPlacement(targetPos, ghostLogic);
             totalCost += bp.definition.baseDebtCost;
             if (EconomyManager.Instance != null && !EconomyManager.Instance.CanBuild(totalCost)) valid = false;
             SetGhostMaterial(g, valid);
@@ -445,12 +454,22 @@ public class BuildingSystem : MonoBehaviour
     bool IsValidPlacement(Vector2Int pos, BuildingBase logic)
     {
         if (!CasinoGridManager.Instance.IsUnlocked(pos)) return false;
+
+        // --- FIX: Check if occupied, but allow Unpacker on Resource ---
         if (CasinoGridManager.Instance.IsOccupied(pos))
         {
             var existing = CasinoGridManager.Instance.GetBuildingAt(pos);
+
+            // Allow Belt Replacement
             if (existing is ConveyorBelt && logic is ConveyorBelt) return true;
+
+            // Allow Unpacker on Resource (Wait, resource is NOT 'Occupied' usually)
+            // If SupplyDrop registers as a Building, this returns true.
+            // If we manually placed SupplyDrop, check if it's there.
             return false;
         }
+        // --------------------------------------------------------------
+
         return logic.CanBePlacedAt(pos);
     }
 
@@ -468,6 +487,10 @@ public class BuildingSystem : MonoBehaviour
         while (dragGhosts.Count < count)
         {
             GameObject g = (selectedBuilding != null) ? Instantiate(selectedBuilding.prefab) : GameObject.CreatePrimitive(PrimitiveType.Cube);
+            // --- FIX: Disable Logic Script ---
+            BuildingBase logic = g.GetComponent<BuildingBase>();
+            if (logic != null) logic.enabled = false;
+            // ---------------------------------
             CleanupGhostVisuals(g);
             dragGhosts.Add(g);
         }
@@ -476,8 +499,13 @@ public class BuildingSystem : MonoBehaviour
     void CleanupGhostVisuals(GameObject ghost)
     {
         foreach (var col in ghost.GetComponentsInChildren<Collider>()) col.enabled = false;
+
+        // --- FIX: Do NOT destroy BuildingBase, just disable it (already done) ---
         foreach (var comp in ghost.GetComponentsInChildren<MonoBehaviour>())
-            if (!(comp is BuildingBase)) Destroy(comp);
+        {
+            if (comp is BuildingBase) continue; // Keep it attached (but disabled) for property checks
+            Destroy(comp);
+        }
     }
 
     void ResetGhostVisuals(GameObject ghost)

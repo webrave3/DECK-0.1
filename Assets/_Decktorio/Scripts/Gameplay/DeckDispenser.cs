@@ -1,5 +1,4 @@
 using UnityEngine;
-using System.Collections.Generic; // Required for List
 
 public class DeckDispenser : BuildingBase
 {
@@ -13,18 +12,27 @@ public class DeckDispenser : BuildingBase
     public int outputRank = 2;
 
     private float timer = 0f;
-
-    // Status for Tooltip
     public string lastStatus = "Initializing";
 
     protected override void Start()
     {
         base.Start();
+
+        // --- SAFETY REGISTRATION ---
+        // Force register if manually placed
+        Vector2Int truePos = CasinoGridManager.Instance.WorldToGrid(transform.position);
+        if (CasinoGridManager.Instance.GetBuildingAt(truePos) != this)
+        {
+            Setup(truePos);
+            // FIXED: Arguments swapped to (Position, Building)
+            CasinoGridManager.Instance.RegisterBuilding(truePos, this);
+            Debug.Log($"<color=green>[DeckDispenser]</color> Auto-Registered at {truePos}");
+        }
+        // ---------------------------
     }
 
     protected override void OnTick(int tick)
     {
-        // 1. Spawning Logic
         if (internalItem == null)
         {
             timer += TickManager.Instance.tickRate;
@@ -38,10 +46,9 @@ public class DeckDispenser : BuildingBase
                 lastStatus = $"Charging: {(int)((timer / dispenseInterval) * 100)}%";
             }
         }
-        // 2. Pushing Logic (Now Omni-Directional)
         else
         {
-            TryPushSmart();
+            TryPushDirectional();
         }
     }
 
@@ -62,65 +69,49 @@ public class DeckDispenser : BuildingBase
             internalVisual.SetVisuals(internalItem);
         }
 
-        lastStatus = "Card Ready";
-        GameLogger.Log($"Dispenser: Created {outputRank} of {outputSuit}");
+        lastStatus = "Card Ready (Waiting for Belt)";
     }
 
-    // Tries all 4 directions instead of just one
-    void TryPushSmart()
+    void TryPushDirectional()
     {
-        // Define all 4 cardinal directions
-        Vector2Int[] directions = new Vector2Int[]
+        Vector2Int forwardPos = GetForwardGridPosition();
+        BuildingBase target = CasinoGridManager.Instance.GetBuildingAt(forwardPos);
+
+        if (target == null)
         {
-            new Vector2Int(0, 1),  // North
-            new Vector2Int(1, 0),  // East
-            new Vector2Int(0, -1), // South
-            new Vector2Int(-1, 0)  // West
-        };
-
-        bool foundTarget = false;
-
-        foreach (Vector2Int dir in directions)
-        {
-            Vector2Int targetPos = GridPosition + dir;
-            BuildingBase target = CasinoGridManager.Instance.GetBuildingAt(targetPos);
-
-            // VISUAL DEBUG: Draw a line to where we are checking
-            // Red = Checking/Blocked, Green = Success (drawn inside block)
-            Vector3 worldDir = new Vector3(dir.x, 0, dir.y);
-            Debug.DrawRay(transform.position + Vector3.up, worldDir, Color.red, TickManager.Instance.tickRate);
-
-            if (target != null)
-            {
-                if (target.CanAcceptItem(GridPosition))
-                {
-                    // SUCCESS!
-                    target.ReceiveItem(internalItem, internalVisual);
-
-                    internalItem = null;
-                    internalVisual = null;
-                    lastStatus = "Pushed";
-                    foundTarget = true;
-
-                    // Draw Green success line
-                    Debug.DrawRay(transform.position + Vector3.up, worldDir, Color.green, 0.5f);
-                    break; // Stop looking, we pushed it.
-                }
-                else
-                {
-                    // Found a building, but it refused us (probably full or wrong direction)
-                    lastStatus = "Target Refused/Full";
-                }
-            }
+            lastStatus = $"Blocked: No Building at {forwardPos}";
+            Debug.DrawLine(transform.position, CasinoGridManager.Instance.GridToWorld(forwardPos), Color.red, 1.0f);
+            return;
         }
 
-        if (!foundTarget && lastStatus != "Target Refused/Full")
+        if (target.CanAcceptItem(GridPosition))
         {
-            lastStatus = "No Connection";
+            target.ReceiveItem(internalItem, internalVisual);
+            internalItem = null;
+            internalVisual = null;
+            lastStatus = "Pushed Success";
+            Debug.Log($"<color=green>[Dispenser]</color> Pushed item to {target.name} at {forwardPos}");
+        }
+        else
+        {
+            lastStatus = "Blocked: Target Full/Refused";
+        }
+    }
 
-            // Visual Flair: Rotate the stuck card
-            if (internalVisual != null)
-                internalVisual.transform.Rotate(Vector3.up * 180 * TickManager.Instance.tickRate);
+    private void OnDrawGizmos()
+    {
+        if (Application.isPlaying)
+        {
+            Vector2Int fwd = GetForwardGridPosition();
+            if (CasinoGridManager.Instance != null)
+            {
+                Vector3 start = transform.position + Vector3.up;
+                Vector3 end = CasinoGridManager.Instance.GridToWorld(fwd) + Vector3.up;
+
+                Gizmos.color = Color.yellow;
+                Gizmos.DrawLine(start, end);
+                Gizmos.DrawSphere(end, 0.2f);
+            }
         }
     }
 }

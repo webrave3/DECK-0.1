@@ -3,10 +3,7 @@ using UnityEngine;
 public class ConveyorBelt : BuildingBase
 {
     [Header("Visuals")]
-    public float itemHeightOffset = 0.2f; // Slightly higher to sit ON the belt
-
-    // Set to 0.0f for Center-to-Center movement (Smoothest)
-    // Set to 0.5f if you want them to sit at the edge (Can cause snapping)
+    public float itemHeightOffset = 0.2f;
     public float forwardVisualOffset = 0.0f;
 
     [Header("Gameplay")]
@@ -20,11 +17,19 @@ public class ConveyorBelt : BuildingBase
     {
         base.Start();
 
-        // Find children safely
+        // --- SAFETY REGISTRATION ---
+        Vector2Int truePos = CasinoGridManager.Instance.WorldToGrid(transform.position);
+        if (CasinoGridManager.Instance.GetBuildingAt(truePos) != this)
+        {
+            Setup(truePos);
+            // FIXED: Arguments swapped to (Position, Building)
+            CasinoGridManager.Instance.RegisterBuilding(truePos, this);
+        }
+        // ---------------------------
+
         visualStraight = transform.Find("Visual_Straight");
         visualLeft = transform.Find("Visual_Corner_Left");
         visualRight = transform.Find("Visual_Corner_Right");
-
         UpdateVisuals();
     }
 
@@ -38,21 +43,19 @@ public class ConveyorBelt : BuildingBase
         CheckNeighbor(GetLeftGridPosition(), ref inputLeft);
         CheckNeighbor(GetRightGridPosition(), ref inputRight);
 
-        // Reset
         if (visualStraight) visualStraight.gameObject.SetActive(false);
         if (visualLeft) visualLeft.gameObject.SetActive(false);
         if (visualRight) visualRight.gameObject.SetActive(false);
 
-        // Simple Corner Logic
         if (inputLeft && !inputBack)
         {
             if (visualLeft) visualLeft.gameObject.SetActive(true);
-            else if (visualStraight) visualStraight.gameObject.SetActive(true); // Fallback
+            else if (visualStraight) visualStraight.gameObject.SetActive(true);
         }
         else if (inputRight && !inputBack)
         {
             if (visualRight) visualRight.gameObject.SetActive(true);
-            else if (visualStraight) visualStraight.gameObject.SetActive(true); // Fallback
+            else if (visualStraight) visualStraight.gameObject.SetActive(true);
         }
         else
         {
@@ -63,7 +66,6 @@ public class ConveyorBelt : BuildingBase
     private void CheckNeighbor(Vector2Int pos, ref bool hasInput)
     {
         BuildingBase b = CasinoGridManager.Instance.GetBuildingAt(pos);
-        // Only connect visually if the neighbor is pointing AT us
         if (b != null && b is ConveyorBelt && b.GetForwardGridPosition() == GridPosition)
             hasInput = true;
     }
@@ -76,15 +78,12 @@ public class ConveyorBelt : BuildingBase
     private void TryPushItem()
     {
         Vector2Int forwardPos = GetForwardGridPosition();
-
-        // Use the GridManager to find target
         BuildingBase target = CasinoGridManager.Instance.GetBuildingAt(forwardPos);
 
         if (target != null && target.CanAcceptItem(GridPosition))
         {
             internalItem.velocityBonus = this.speedModifier;
             target.ReceiveItem(internalItem, internalVisual);
-
             internalItem = null;
             internalVisual = null;
         }
@@ -92,14 +91,8 @@ public class ConveyorBelt : BuildingBase
 
     public override bool CanAcceptItem(Vector2Int fromPos)
     {
-        // 1. Basic Capacity Check
-        if (incomingItem != null || internalItem != null) return false;
-
-        // 2. (Optional) Strict Direction Check
-        // Uncomment this to force items to enter from the back only
-        // Vector2Int backPos = GridPosition - GetForwardVector();
-        // if (fromPos != backPos) return false; 
-
+        if (incomingItem != null) return false;
+        if (internalItem != null) return false;
         return true;
     }
 
@@ -108,31 +101,19 @@ public class ConveyorBelt : BuildingBase
         if (internalVisual != null)
         {
             internalVisual.transform.SetParent(this.transform);
-
-            // Calculate Target: Center of this tile + Up Offset
             Vector3 targetPos = transform.position + (Vector3.up * itemHeightOffset);
-
-            // Optional: If you really want the forward offset
             if (forwardVisualOffset != 0)
             {
                 Vector3 worldForward = (CasinoGridManager.Instance.GridToWorld(GetForwardGridPosition()) - transform.position).normalized;
                 targetPos += worldForward * forwardVisualOffset;
             }
-
-            // Duration is ignored by the new ItemVisualizer (it uses Tick interpolation)
             internalVisual.InitializeMovement(targetPos, TickManager.Instance.tickRate);
         }
     }
 
-    // --- Helpers ---
     public Vector2Int GetLeftGridPosition() => GridPosition + GetDirFromIndex((RotationIndex + 3) % 4);
     public Vector2Int GetRightGridPosition() => GridPosition + GetDirFromIndex((RotationIndex + 1) % 4);
     public Vector2Int GetBackGridPosition() => GridPosition + GetDirFromIndex((RotationIndex + 2) % 4);
-
-    public Vector2Int GetForwardVector()
-    {
-        return GetDirFromIndex(RotationIndex);
-    }
 
     public static Vector2Int GetDirFromIndex(int index)
     {

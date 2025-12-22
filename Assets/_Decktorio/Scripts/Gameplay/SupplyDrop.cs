@@ -6,21 +6,30 @@ public class SupplyDrop : BuildingBase
     public string resourceName = "Cardstock";
 
     [Header("Output Configuration")]
-    // The exact card data this node provides
     public CardSuit suit = CardSuit.None;
-    public int rank = 0; // 0 = Blank/Raw
+    public int rank = 0;
     public CardMaterial material = CardMaterial.Cardstock;
     public CardInk ink = CardInk.Standard;
 
     [Header("Visuals")]
-    public GameObject outputPrefab; // What the Unpacker should spawn visually
+    public GameObject outputPrefab;
+
+    // CHANGED: Use Awake to ensure registration happens BEFORE buildings try to find it
+    private void Awake()
+    {
+        // Safety check for GridManager
+        if (CasinoGridManager.Instance != null)
+        {
+            Vector2Int pos = CasinoGridManager.Instance.WorldToGrid(transform.position);
+            CasinoGridManager.Instance.RegisterResource(this, pos);
+        }
+    }
 
     protected override void Start()
     {
-        // Register as a resource node so Unpacker can find it
-        Vector2Int pos = CasinoGridManager.Instance.WorldToGrid(transform.position);
-        CasinoGridManager.Instance.RegisterResource(this, pos);
+        // Don't call base.Start() to avoid auto-registering as a Building.
+        // We act as a passive resource.
     }
 
-    protected override void OnTick(int tick) { /* Passive */ }
+    protected override void OnTick(int tick) { }
 }
