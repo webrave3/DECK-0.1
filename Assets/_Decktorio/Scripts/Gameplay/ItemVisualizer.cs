@@ -8,20 +8,31 @@ public class ItemVisualizer : MonoBehaviour
     public TextMeshPro rankText;
 
     [Header("Settings")]
-    public Vector3 baseScale = new Vector3(0.8f, 0.05f, 1.1f);
-
-    // Removed jumpHeight - we want smooth conveyor sliding!
+    // FIXED: Smaller scale for proper belt margins (Padding)
+    public Vector3 baseScale = new Vector3(0.4f, 0.03f, 0.5f);
 
     public ItemPayload cachedPayload;
 
     // Movement State
-    private Vector3 startPos;
     private Vector3 targetPos;
+    private float moveSpeed;
     private bool isMoving = false;
 
     private void Awake()
     {
         if (meshRenderer == null) meshRenderer = GetComponentInChildren<MeshRenderer>();
+
+        // --- PHYSICS SAFETY LOCK ---
+        // Prevents cards from falling through the floor (fixing the Unpacker bug)
+        Rigidbody rb = GetComponent<Rigidbody>();
+        if (rb != null)
+        {
+            rb.useGravity = false;
+            rb.isKinematic = true;
+        }
+        Collider col = GetComponent<Collider>();
+        if (col != null) col.enabled = false;
+        // ---------------------------
     }
 
     public void SetVisuals(ItemPayload item)
@@ -31,9 +42,13 @@ public class ItemVisualizer : MonoBehaviour
 
         CardData topCard = item.contents[item.contents.Count - 1];
 
+        // 1. Apply Background Color
         if (meshRenderer != null)
+        {
             meshRenderer.material.color = topCard.GetDisplayColor();
+        }
 
+        // 2. Apply Legible Text
         if (rankText != null)
         {
             if (topCard.suit == CardSuit.None)
@@ -44,14 +59,16 @@ public class ItemVisualizer : MonoBehaviour
             {
                 string rankStr = GetRankString(topCard.rank);
                 string suitStr = GetSuitSymbol(topCard.suit);
-                string colorTag = (topCard.suit == CardSuit.Heart || topCard.suit == CardSuit.Diamond)
-                    ? "<color=red>" : "<color=black>";
 
-                rankText.text = $"{colorTag}{rankStr}\n<size=80%>{suitStr}</size></color>";
+                // FIX: Get high-contrast text color (White on Black/Red, Black on Gold/White)
+                Color txtColor = topCard.GetContrastingTextColor();
+                string hexColor = "#" + ColorUtility.ToHtmlStringRGBA(txtColor);
+
+                rankText.text = $"<color={hexColor}>{rankStr}\n<size=80%>{suitStr}</size></color>";
             }
         }
 
-        // Shape scaling
+        // 3. Apply Scale (Stacks)
         if (item.contents.Count > 1)
         {
             float stackHeight = 1f + (item.contents.Count * 0.1f);
@@ -63,34 +80,44 @@ public class ItemVisualizer : MonoBehaviour
         }
     }
 
-    public void InitializeMovement(Vector3 end, float duration)
+    public void InitializeMovement(Vector3 endPos, float duration)
     {
-        startPos = transform.position;
-        targetPos = end;
+        targetPos = endPos;
+
+        // Calculate constant speed
+        float distance = Vector3.Distance(transform.position, endPos);
+        if (duration > 0 && distance > 0) moveSpeed = distance / duration;
+        else moveSpeed = 50f; // Fast snap if 0 duration
+
         isMoving = true;
         gameObject.SetActive(true);
-
-        // Instant Rotation look-at for cleaner turns
-        if (Vector3.Distance(startPos, targetPos) > 0.01f)
-        {
-            Vector3 dir = targetPos - startPos;
-            dir.y = 0; // Keep flat
-            if (dir != Vector3.zero) transform.rotation = Quaternion.LookRotation(dir);
-        }
     }
 
     private void Update()
     {
-        if (!isMoving || TickManager.Instance == null) return;
+        if (!isMoving) return;
 
-        // Smooth Linear Interpolation (Sliding)
-        float t = TickManager.Instance.GetInterpolationFactor();
+        // 1. Move Linear (Smooth Slide)
+        transform.position = Vector3.MoveTowards(transform.position, targetPos, moveSpeed * Time.deltaTime);
 
-        // Use Lerp for smooth sliding. 
-        // No jumping, no arcs. Just slide.
-        Vector3 currentPos = Vector3.Lerp(startPos, targetPos, t);
+        // 2. Rotate Snappy (Fixes diagonal floating issues)
+        if (Vector3.Distance(transform.position, targetPos) > 0.01f)
+        {
+            Vector3 dir = targetPos - transform.position;
+            dir.y = 0;
+            if (dir != Vector3.zero)
+            {
+                Quaternion targetRot = Quaternion.LookRotation(dir);
+                // Fast rotation (720 deg/s) looks snappy and responsive
+                transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRot, 720f * Time.deltaTime);
+            }
+        }
 
-        transform.position = currentPos;
+        // 3. Stop check
+        if (Vector3.Distance(transform.position, targetPos) < 0.001f)
+        {
+            isMoving = false;
+        }
     }
 
     // --- Helpers ---

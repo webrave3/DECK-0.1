@@ -246,12 +246,16 @@ MonoBehaviour:
     contents: []
     velocityBonus: 1
     valueMultiplier: 1
+  incomingItem:
+    contents: []
+    velocityBonus: 1
+    valueMultiplier: 1
   itemPrefab: {fileID: 3028812445738917325, guid: d03acbce6a1c13f4497f37492b160b4c, type: 3}
   outputAnchor: {fileID: 0}
   dispenseInterval: 1
-  outputSuit: 3
-  outputRank: 13
-  outputDirectionOffset: 2
+  outputSuit: 2
+  outputRank: 3
+  outputDirectionOffset: 0
   lastStatus: Initializing
 --- !u!114 &-2798690212387202738
 MonoBehaviour:

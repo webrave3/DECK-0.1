@@ -25,7 +25,6 @@ public abstract class BuildingBase : MonoBehaviour
         if (CasinoGridManager.Instance != null)
         {
             Vector2Int truePos = CasinoGridManager.Instance.WorldToGrid(transform.position);
-            // Auto-align
             transform.position = CasinoGridManager.Instance.GridToWorld(truePos);
 
             if (CasinoGridManager.Instance.GetBuildingAt(truePos) != this)
@@ -42,29 +41,23 @@ public abstract class BuildingBase : MonoBehaviour
     protected virtual void OnDestroy()
     {
         if (isGhost) return;
-
-        if (TickManager.Instance != null)
-            TickManager.Instance.OnTick -= HandleTickSystem;
-
+        if (TickManager.Instance != null) TickManager.Instance.OnTick -= HandleTickSystem;
         if (internalVisual != null) Destroy(internalVisual.gameObject);
         if (incomingVisual != null) Destroy(incomingVisual.gameObject);
-
         if (CasinoGridManager.Instance != null && CasinoGridManager.Instance.GetBuildingAt(GridPosition) == this)
-        {
             CasinoGridManager.Instance.RemoveBuilding(GridPosition);
-        }
-    }
-
-    public virtual void Initialize(Vector2Int pos, int rot)
-    {
-        Setup(pos);
-        SetRotation(rot);
     }
 
     public void Setup(Vector2Int pos)
     {
         GridPosition = pos;
         transform.position = CasinoGridManager.Instance.GridToWorld(pos);
+    }
+
+    public void Initialize(Vector2Int pos, int rot)
+    {
+        Setup(pos);
+        SetRotation(rot);
     }
 
     public void SetRotation(int rotIndex)
@@ -90,27 +83,21 @@ public abstract class BuildingBase : MonoBehaviour
     {
         if (isGhost) return;
 
-        // --- GLOBAL SELF-HEALING FIX ---
-        // If we have Data, but the Visual Object is null (or was destroyed by physics/killplane)
-        // We MUST clear the data, otherwise the machine thinks it's full forever.
+        // Safety: If visual destroyed, clear data to prevent blockages
         if (internalItem != null && internalVisual == null)
         {
-            Debug.LogWarning($"<color=orange>[{name}]</color> Visual Object died unexpectedly! Clearing Ghost Data to unclog machine.");
+            Debug.LogWarning($"[{name}] Visual missing. Clearing internal data.");
             internalItem = null;
         }
-        // -------------------------------
 
         OnTick(tick);
 
-        // Move Mailbox to Internal
         if (incomingItem != null && internalItem == null)
         {
             internalItem = incomingItem;
             internalVisual = incomingVisual;
-
             incomingItem = null;
             incomingVisual = null;
-
             OnItemArrived();
         }
     }
@@ -122,8 +109,8 @@ public abstract class BuildingBase : MonoBehaviour
         if (internalVisual != null)
         {
             internalVisual.transform.SetParent(this.transform);
-            float duration = TickManager.Instance.tickRate;
-            internalVisual.InitializeMovement(transform.position + Vector3.up * 0.2f, duration);
+            // Default behavior: Move to center
+            internalVisual.InitializeMovement(transform.position + Vector3.up * 0.2f, TickManager.Instance.tickRate);
         }
     }
 
@@ -137,27 +124,19 @@ public abstract class BuildingBase : MonoBehaviour
 
     public virtual void ReceiveItem(ItemPayload item, ItemVisualizer visual)
     {
-        // Safety: Reject if visual is missing
-        if (visual == null)
-        {
-            Debug.LogError($"[{name}] Attempted to receive item with NULL visual! Rejecting to prevent ghosts.");
-            return;
-        }
+        if (visual == null) return;
         incomingItem = item;
         incomingVisual = visual;
     }
 
     public virtual bool CanBePlacedAt(Vector2Int gridPos) => true;
 
-    [ContextMenu("Debug: Force Clear Inventory")]
+    [ContextMenu("Debug: Force Clear")]
     public void ForceClearInventory()
     {
         internalItem = null;
         incomingItem = null;
         if (internalVisual != null) Destroy(internalVisual.gameObject);
         if (incomingVisual != null) Destroy(incomingVisual.gameObject);
-        internalVisual = null;
-        incomingVisual = null;
-        Debug.Log($"<color=yellow>[{name}]</color> Inventory Cleared Forcefully.");
     }
 }

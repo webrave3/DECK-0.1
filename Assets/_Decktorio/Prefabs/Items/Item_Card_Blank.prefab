@@ -130,7 +130,6 @@ MonoBehaviour:
   meshRenderer: {fileID: 812958088590523507}
   rankText: {fileID: 4378899372679585715}
   baseScale: {x: 0.8, y: 0.05, z: 1.1}
-  jumpHeight: 0.2
   cachedPayload:
     contents: []
     velocityBonus: 1

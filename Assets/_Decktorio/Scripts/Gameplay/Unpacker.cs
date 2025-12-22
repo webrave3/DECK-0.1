@@ -16,7 +16,6 @@ public class Unpacker : BuildingBase
     private SupplyDrop linkedResource;
     public string lastStatus = "Initializing";
 
-    // Only placeable on SupplyDrops
     public override bool CanBePlacedAt(Vector2Int gridPos)
     {
         return CasinoGridManager.Instance.GetResourceAt(gridPos) != null;
@@ -27,16 +26,18 @@ public class Unpacker : BuildingBase
         base.Start();
         if (CasinoGridManager.Instance == null) return;
 
-        // Auto-Register & Snap
+        // 1. Auto-Align to Grid
         Vector2Int truePos = CasinoGridManager.Instance.WorldToGrid(transform.position);
         transform.position = CasinoGridManager.Instance.GridToWorld(truePos);
 
+        // 2. Register
         if (CasinoGridManager.Instance.GetBuildingAt(truePos) != this)
         {
             Setup(truePos);
             CasinoGridManager.Instance.RegisterBuilding(truePos, this);
         }
 
+        // 3. Find Resource
         linkedResource = CasinoGridManager.Instance.GetResourceAt(GridPosition);
         if (linkedResource == null)
         {
@@ -47,12 +48,14 @@ public class Unpacker : BuildingBase
 
     protected override void OnTick(int tick)
     {
+        // If we are holding an item, try to push it out
         if (internalItem != null)
         {
             TryPushDirectional();
             return;
         }
 
+        // If empty and on a resource, work
         if (linkedResource != null)
         {
             progress += TickManager.Instance.tickRate;
@@ -67,15 +70,11 @@ public class Unpacker : BuildingBase
 
     void SpawnFromResource()
     {
-        if (linkedResource == null) return;
-
-        // --- GHOST PREVENTION CHECK ---
-        if (linkedResource.outputPrefab == null)
+        if (linkedResource == null || linkedResource.outputPrefab == null)
         {
-            lastStatus = "ERROR: Resource has no Prefab";
+            lastStatus = "Error: Resource invalid";
             return;
         }
-        // ------------------------------
 
         CardData newData = new CardData(linkedResource.rank, linkedResource.suit, linkedResource.material, linkedResource.ink);
         internalItem = new ItemPayload(newData);
@@ -83,10 +82,11 @@ public class Unpacker : BuildingBase
         Vector3 spawnPos = outputAnchor != null ? outputAnchor.position : transform.position + Vector3.up * 0.5f;
         GameObject visualObj = Instantiate(linkedResource.outputPrefab, spawnPos, Quaternion.identity);
 
-        // --- INSTANTIATION SAFETY CHECK ---
+        // --- SAFETY CHECK ---
+        // If the visual dies instantly (physics bug), we must abort to prevent "Ghost Items"
         if (visualObj == null)
         {
-            Debug.LogError($"[{name}] Failed to spawn resource visual! Clearing data.");
+            Debug.LogError("[Unpacker] Visual Spawn Failed (Physics Issue?). Clearing Data.");
             internalItem = null;
             return;
         }
@@ -100,16 +100,10 @@ public class Unpacker : BuildingBase
         lastStatus = "Item Extracted";
     }
 
-    private int GetCurrentRotationIndex()
-    {
-        if (Application.isPlaying) return RotationIndex;
-        float y = transform.eulerAngles.y;
-        return Mathf.RoundToInt(y / 90f) % 4;
-    }
-
+    // Calculates which grid tile we are outputting to
     private Vector2Int GetOutputGridPosition()
     {
-        int currentRot = GetCurrentRotationIndex();
+        int currentRot = Application.isPlaying ? RotationIndex : Mathf.RoundToInt(transform.eulerAngles.y / 90f) % 4;
         int finalIndex = (currentRot + outputDirectionOffset) % 4;
 
         Vector2Int basePos = GridPosition;
@@ -149,10 +143,7 @@ public class Unpacker : BuildingBase
         }
         else
         {
-            if (target is ConveyorBelt belt && belt.GetForwardGridPosition() == GridPosition)
-                lastStatus = "Blocked: Backflow";
-            else
-                lastStatus = "Blocked: Target Full";
+            lastStatus = "Blocked: Target Full";
         }
     }
 
@@ -166,6 +157,5 @@ public class Unpacker : BuildingBase
         Gizmos.color = Color.cyan;
         Gizmos.DrawLine(start, end);
         Gizmos.DrawSphere(end, 0.2f);
-        Gizmos.DrawRay(start, (end - start).normalized * 0.5f);
     }
 }

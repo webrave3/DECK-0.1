@@ -7,7 +7,6 @@ public struct CardData
     public string uid;
 
     // Layer 4: Logic (Rank)
-    // We use int for easier Poker math (Straight calculations)
     // 2-14 are standard. 15+ are "Illegal/Overclocked".
     public int rank;
 
@@ -42,7 +41,6 @@ public struct CardData
 
     public float GetMass()
     {
-        // Used for Physics checks (Floor 2: Chip Mountain)
         if (material == CardMaterial.Steel) return 5.0f; // Very Heavy
         if (material == CardMaterial.GoldLeaf) return 0.5f; // Very Light
         return 1.0f;
@@ -50,25 +48,20 @@ public struct CardData
 
     public bool IsConductive()
     {
-        // Used for Logic Gates (Floor 4)
         return material == CardMaterial.GoldLeaf;
     }
 
     public bool IsFlammable()
     {
-        // Used for hazards
         return material == CardMaterial.Cardstock;
     }
 
-    // Helper to determine visual color based on Suit + Ink
-    // Inside CardData struct...
-
+    // Returns the BACKGROUND color of the card
     public Color GetDisplayColor()
     {
         if (ink == CardInk.Invisible) return new Color(1, 1, 1, 0.2f);
         if (ink == CardInk.Neon) return Color.magenta;
 
-        // Specific Materials override Ink
         if (material == CardMaterial.GoldLeaf) return new Color(1f, 0.84f, 0f); // Gold
         if (material == CardMaterial.Steel) return new Color(0.6f, 0.6f, 0.7f); // Grey Metal
 
@@ -81,10 +74,20 @@ public struct CardData
             case CardSuit.Spade:
                 return Color.black;
             case CardSuit.None:
-                // Return a nice "Cardboard/Paper" Beige
-                return new Color(0.96f, 0.96f, 0.86f);
+                return new Color(0.96f, 0.96f, 0.86f); // Beige
             default:
                 return Color.white;
         }
+    }
+
+    // NEW: Returns White or Black text depending on how dark the background is
+    public Color GetContrastingTextColor()
+    {
+        Color bg = GetDisplayColor();
+        // Calculate Luminance (standard formula)
+        float luminance = 0.299f * bg.r + 0.587f * bg.g + 0.114f * bg.b;
+
+        // If bright (> 0.5), use Black text. If dark, use White text.
+        return (luminance > 0.5f) ? Color.black : Color.white;
     }
 }
