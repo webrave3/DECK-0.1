@@ -86,7 +86,7 @@ public abstract class BuildingBase : MonoBehaviour
         // Safety: If visual destroyed, clear data to prevent blockages
         if (internalItem != null && internalVisual == null)
         {
-            Debug.LogWarning($"[{name}] Visual missing. Clearing internal data.");
+           
             internalItem = null;
         }
 

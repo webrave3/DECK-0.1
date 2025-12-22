@@ -125,9 +125,8 @@ GameObject:
   - component: {fileID: 1662014139466756853}
   - component: {fileID: 7861584572946905102}
   - component: {fileID: 195019815613890195}
-  - component: {fileID: 3663295745135753336}
   m_Layer: 0
-  m_Name: Building_Collator
+  m_Name: Collator
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -241,7 +240,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Collator
   Definition: {fileID: 11400000, guid: 1451b7803676f4144b5ddde2dc4e29c0, type: 2}
   showDebugLogs: 0
+  isGhost: 0
   internalItem:
+    contents: []
+    velocityBonus: 1
+    valueMultiplier: 1
+  incomingItem:
     contents: []
     velocityBonus: 1
     valueMultiplier: 1
@@ -249,17 +253,3 @@ MonoBehaviour:
   processTime: 0.5
   smartEject: 1
   stackVisualPrefab: {fileID: 7565947318712671885, guid: fafff7167bab45c478e2a683c8eb547e, type: 3}
---- !u!114 &3663295745135753336
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6847701902936027944}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5e8f500373c2aae4f8b66eb85dee4c7b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::HoverInfo
-  objectName: 
-  staticDescription: 

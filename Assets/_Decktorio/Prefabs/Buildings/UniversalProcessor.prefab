@@ -13,7 +13,6 @@ GameObject:
   - component: {fileID: 7988617296218295959}
   - component: {fileID: 1844948125717291366}
   - component: {fileID: -8618082789167994291}
-  - component: {fileID: 321054581645424679}
   m_Layer: 0
   m_Name: UniversalProcessor
   m_TagString: Untagged
@@ -129,27 +128,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UniversalProcessor
   Definition: {fileID: 0}
   showDebugLogs: 0
+  isGhost: 0
   internalItem:
     contents: []
     velocityBonus: 1
     valueMultiplier: 1
-  activeRecipe: {fileID: 11400000, guid: 180d20ac74010044c955924b2f43a768, type: 2}
+  incomingItem:
+    contents: []
+    velocityBonus: 1
+    valueMultiplier: 1
+  currentMode: 0
+  targetSuit: 1
+  rankValue: 1
   animationPart: {fileID: 0}
   animationSpeed: 360
---- !u!114 &321054581645424679
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5876896542447568243}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5e8f500373c2aae4f8b66eb85dee4c7b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::HoverInfo
-  objectName: 
-  staticDescription: 
+  processDuration: 1
 --- !u!1 &8531248340517747179
 GameObject:
   m_ObjectHideFlags: 0

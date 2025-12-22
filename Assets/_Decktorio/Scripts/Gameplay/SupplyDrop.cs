@@ -31,8 +31,6 @@ public class SupplyDrop : BuildingBase
             // 2. FIX: Snap visual position to the center of the grid cell
             // This ensures Unpackers can snap to it correctly.
             transform.position = CasinoGridManager.Instance.GridToWorld(pos);
-
-            Debug.Log($"<color=cyan>[SupplyDrop]</color> Registered & Aligned at {pos}");
         }
         else
         {

@@ -63,7 +63,6 @@ public class BuildingSystem : MonoBehaviour
 
     public bool IsBuildingOrPasteActive() => selectedBuilding != null || (pasteClipboard != null && pasteClipboard.Count > 0);
 
-    // --- BRUTE FORCE CONTROL ---
     private void SetSelectionManagerActive(bool active)
     {
         if (SelectionManager.Instance != null)
@@ -87,7 +86,6 @@ public class BuildingSystem : MonoBehaviour
             SelectionManager.Instance.enabled = true;
         }
     }
-    // ---------------------------
 
     public void SelectBuilding(BuildingDefinition def)
     {
@@ -196,11 +194,8 @@ public class BuildingSystem : MonoBehaviour
         if (singleGhost != null) Destroy(singleGhost);
         singleGhost = Instantiate(selectedBuilding.prefab);
 
-        // --- FIX: Disable Logic Script Immediately ---
-        // This prevents the ghost from running Start() and registering itself in the grid
         BuildingBase logic = singleGhost.GetComponent<BuildingBase>();
         if (logic != null) logic.enabled = false;
-        // ---------------------------------------------
 
         CleanupGhostVisuals(singleGhost);
     }
@@ -236,10 +231,8 @@ public class BuildingSystem : MonoBehaviour
                 Destroy(g);
                 g = Instantiate(selectedBuilding.prefab);
 
-                // --- FIX: Disable Logic Script Immediately ---
                 BuildingBase logic = g.GetComponent<BuildingBase>();
                 if (logic != null) logic.enabled = false;
-                // ---------------------------------------------
 
                 CleanupGhostVisuals(g);
                 dragGhosts[i] = g;
@@ -344,10 +337,8 @@ public class BuildingSystem : MonoBehaviour
                 Destroy(g);
                 g = Instantiate(bp.definition.prefab);
 
-                // --- FIX: Disable Logic Script ---
                 BuildingBase logic = g.GetComponent<BuildingBase>();
                 if (logic != null) logic.enabled = false;
-                // ---------------------------------
 
                 CleanupGhostVisuals(g);
                 dragGhosts[i] = g;
@@ -373,16 +364,25 @@ public class BuildingSystem : MonoBehaviour
         {
             Vector2Int pos = center + bp.relPos;
             if (EconomyManager.Instance != null && !EconomyManager.Instance.CanBuild(bp.definition.baseDebtCost)) break;
+
             BuildingBase logic = bp.definition.prefab.GetComponent<BuildingBase>();
             if (IsValidPlacement(pos, logic))
             {
                 if (CasinoGridManager.Instance.IsOccupied(pos)) CasinoGridManager.Instance.RemoveBuilding(pos);
                 if (EconomyManager.Instance != null) EconomyManager.Instance.SpendMoney(bp.definition.baseDebtCost);
+
                 GameObject b = Instantiate(bp.definition.prefab);
                 BuildingBase baseScript = b.GetComponent<BuildingBase>();
                 baseScript.Definition = bp.definition;
                 baseScript.Initialize(pos, bp.rotation);
                 CasinoGridManager.Instance.PlaceBuilding(baseScript, pos);
+
+                // --- NEW: Apply Saved Settings ---
+                if (bp.configState != null && baseScript is IConfigurable configurable)
+                {
+                    configurable.SetConfigurationState(bp.configState);
+                }
+                // ---------------------------------
             }
         }
     }
@@ -394,7 +394,15 @@ public class BuildingSystem : MonoBehaviour
             var bp = pasteClipboard[i];
             Vector2Int newPos = new Vector2Int(bp.relPos.y, -bp.relPos.x);
             int newRot = (bp.rotation + 1) % 4;
-            pasteClipboard[i] = new SelectionManager.BuildingBlueprint { definition = bp.definition, relPos = newPos, rotation = newRot };
+
+            // FIX: Copied 'configState' to ensure settings are preserved during rotation
+            pasteClipboard[i] = new SelectionManager.BuildingBlueprint
+            {
+                definition = bp.definition,
+                relPos = newPos,
+                rotation = newRot,
+                configState = bp.configState
+            };
         }
     }
 
@@ -455,20 +463,13 @@ public class BuildingSystem : MonoBehaviour
     {
         if (!CasinoGridManager.Instance.IsUnlocked(pos)) return false;
 
-        // --- FIX: Check if occupied, but allow Unpacker on Resource ---
         if (CasinoGridManager.Instance.IsOccupied(pos))
         {
             var existing = CasinoGridManager.Instance.GetBuildingAt(pos);
 
-            // Allow Belt Replacement
             if (existing is ConveyorBelt && logic is ConveyorBelt) return true;
-
-            // Allow Unpacker on Resource (Wait, resource is NOT 'Occupied' usually)
-            // If SupplyDrop registers as a Building, this returns true.
-            // If we manually placed SupplyDrop, check if it's there.
             return false;
         }
-        // --------------------------------------------------------------
 
         return logic.CanBePlacedAt(pos);
     }
@@ -487,10 +488,8 @@ public class BuildingSystem : MonoBehaviour
         while (dragGhosts.Count < count)
         {
             GameObject g = (selectedBuilding != null) ? Instantiate(selectedBuilding.prefab) : GameObject.CreatePrimitive(PrimitiveType.Cube);
-            // --- FIX: Disable Logic Script ---
             BuildingBase logic = g.GetComponent<BuildingBase>();
             if (logic != null) logic.enabled = false;
-            // ---------------------------------
             CleanupGhostVisuals(g);
             dragGhosts.Add(g);
         }
@@ -499,11 +498,9 @@ public class BuildingSystem : MonoBehaviour
     void CleanupGhostVisuals(GameObject ghost)
     {
         foreach (var col in ghost.GetComponentsInChildren<Collider>()) col.enabled = false;
-
-        // --- FIX: Do NOT destroy BuildingBase, just disable it (already done) ---
         foreach (var comp in ghost.GetComponentsInChildren<MonoBehaviour>())
         {
-            if (comp is BuildingBase) continue; // Keep it attached (but disabled) for property checks
+            if (comp is BuildingBase) continue;
             Destroy(comp);
         }
     }

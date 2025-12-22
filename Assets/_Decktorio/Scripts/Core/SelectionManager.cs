@@ -8,6 +8,7 @@ public class SelectionManager : MonoBehaviour
 
     [Header("UI References")]
     public RectTransform selectionBoxUI;
+    public InspectorUI inspectorUI;
     private Canvas parentCanvas;
 
     [Header("Settings")]
@@ -36,11 +37,12 @@ public class SelectionManager : MonoBehaviour
         public BuildingDefinition definition;
         public Vector2Int relPos;
         public int rotation;
+        // NEW: Stores the specific settings (Filters, Modes, etc.)
+        public Dictionary<string, int> configState;
     }
 
     private void Awake()
     {
-        // Singleton Setup that destroys duplicates automatically
         if (Instance != null && Instance != this)
         {
             Debug.LogError($"[SelectionManager] Duplicate detected on {gameObject.name}. Destroying it.");
@@ -59,14 +61,12 @@ public class SelectionManager : MonoBehaviour
         }
     }
 
-    // --- BRUTE FORCE FIX: SAFETY SHUTDOWN ---
     private void OnDisable()
     {
-        // If this script gets disabled (by BuildingSystem), force the UI to hide immediately.
         isSelecting = false;
         if (selectionBoxUI != null) selectionBoxUI.gameObject.SetActive(false);
+        if (inspectorUI != null) inspectorUI.ClosePanel();
     }
-    // ----------------------------------------
 
     private void Update()
     {
@@ -78,7 +78,6 @@ public class SelectionManager : MonoBehaviour
 
         if (!isSelecting && (leftClick || rightClick))
         {
-            // Safety: Don't start dragging from (0,0) or if mouse is over UI
             if (mouse.position.ReadValue().sqrMagnitude < 1) return;
             if (UnityEngine.EventSystems.EventSystem.current != null &&
                 UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject()) return;
@@ -91,7 +90,6 @@ public class SelectionManager : MonoBehaviour
             UpdateSelectionBox();
             UpdateHighlightPreview();
 
-            // Finish on Release
             if (!isDeconstructMode && mouse.leftButton.wasReleasedThisFrame)
             {
                 FinishSelection();
@@ -206,6 +204,27 @@ public class SelectionManager : MonoBehaviour
     {
         isSelecting = false;
         if (selectionBoxUI) selectionBoxUI.gameObject.SetActive(false);
+
+        if (inspectorUI != null)
+        {
+            if (selectedBuildings.Count == 1)
+            {
+                BuildingBase selected = selectedBuildings[0];
+                IConfigurable configurable = selected.GetComponent<IConfigurable>();
+                if (configurable != null)
+                {
+                    inspectorUI.OpenInspector(configurable);
+                }
+                else
+                {
+                    inspectorUI.ClosePanel();
+                }
+            }
+            else
+            {
+                inspectorUI.ClosePanel();
+            }
+        }
     }
 
     void FinishDeconstruction()
@@ -219,6 +238,7 @@ public class SelectionManager : MonoBehaviour
         foreach (var b in selectedBuildings) RestoreBuildingColor(b);
         selectedBuildings.Clear();
         originalColors.Clear();
+        if (inspectorUI != null) inspectorUI.ClosePanel();
     }
 
     void DeleteSelected()
@@ -239,6 +259,7 @@ public class SelectionManager : MonoBehaviour
 
         selectedBuildings.Clear();
         originalColors.Clear();
+        if (inspectorUI != null) inspectorUI.ClosePanel();
     }
 
     void CopySelection()
@@ -249,12 +270,22 @@ public class SelectionManager : MonoBehaviour
 
         foreach (var b in selectedBuildings)
         {
-            clipboard.Add(new BuildingBlueprint
+            // NEW: Create Blueprint with Settings
+            BuildingBlueprint bp = new BuildingBlueprint
             {
                 definition = b.Definition,
                 relPos = b.GridPosition - pivot,
-                rotation = b.RotationIndex
-            });
+                rotation = b.RotationIndex,
+                configState = null
+            };
+
+            // Capture settings if it's configurable
+            if (b is IConfigurable configurable)
+            {
+                bp.configState = configurable.GetConfigurationState();
+            }
+
+            clipboard.Add(bp);
         }
         Debug.Log($"Copied {clipboard.Count} items.");
     }

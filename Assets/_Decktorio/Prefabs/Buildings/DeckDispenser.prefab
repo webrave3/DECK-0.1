@@ -125,7 +125,6 @@ GameObject:
   - component: {fileID: 1662014139466756853}
   - component: {fileID: 7861584572946905102}
   - component: {fileID: -5232427342619450989}
-  - component: {fileID: -2798690212387202738}
   m_Layer: 0
   m_Name: DeckDispenser
   m_TagString: Untagged
@@ -253,21 +252,7 @@ MonoBehaviour:
   itemPrefab: {fileID: 3028812445738917325, guid: d03acbce6a1c13f4497f37492b160b4c, type: 3}
   outputAnchor: {fileID: 0}
   dispenseInterval: 1
-  outputSuit: 2
-  outputRank: 3
+  outputSuit: 0
+  outputRank: 0
   outputDirectionOffset: 0
   lastStatus: Initializing
---- !u!114 &-2798690212387202738
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6847701902936027944}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5e8f500373c2aae4f8b66eb85dee4c7b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::HoverInfo
-  objectName: 
-  staticDescription: 
