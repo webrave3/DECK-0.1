@@ -240,7 +240,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DeckDispenser
   Definition: {fileID: 11400000, guid: ef33cd1ebe01c274d9fc6d3d8e4dcff0, type: 2}
-  showDebugLogs: 0
+  showDebugLogs: 1
+  isGhost: 0
   internalItem:
     contents: []
     velocityBonus: 1
@@ -250,6 +251,7 @@ MonoBehaviour:
   dispenseInterval: 1
   outputSuit: 3
   outputRank: 13
+  outputDirectionOffset: 2
   lastStatus: Initializing
 --- !u!114 &-2798690212387202738
 MonoBehaviour:

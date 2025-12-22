@@ -8,31 +8,32 @@ public abstract class BuildingBase : MonoBehaviour
 
     [Header("Debug")]
     public bool showDebugLogs = false;
-    // CRITICAL: New flag to stop ghosts from acting like real buildings
     public bool isGhost = false;
 
-    // MAIN INVENTORY (What is currently on the belt)
+    // DATA
     public ItemPayload internalItem;
-    protected ItemVisualizer internalVisual;
+    public ItemPayload incomingItem;
 
-    // MAILBOX (Buffer for the NEXT tick)
-    protected ItemPayload incomingItem;
+    // VISUALS
+    protected ItemVisualizer internalVisual;
     protected ItemVisualizer incomingVisual;
 
     protected virtual void Start()
     {
-        // GHOST CHECK: If this is a preview object, DO NOT RUN LOGIC
         if (isGhost) return;
 
-        // --- SAFETY REGISTRATION ---
-        Vector2Int truePos = CasinoGridManager.Instance.WorldToGrid(transform.position);
-        if (CasinoGridManager.Instance.GetBuildingAt(truePos) != this)
+        if (CasinoGridManager.Instance != null)
         {
-            Setup(truePos);
-            CasinoGridManager.Instance.RegisterBuilding(truePos, this);
-            if (showDebugLogs) Debug.Log($"<color=green>[{name}]</color> Auto-Registered at {truePos}");
+            Vector2Int truePos = CasinoGridManager.Instance.WorldToGrid(transform.position);
+            // Auto-align
+            transform.position = CasinoGridManager.Instance.GridToWorld(truePos);
+
+            if (CasinoGridManager.Instance.GetBuildingAt(truePos) != this)
+            {
+                Setup(truePos);
+                CasinoGridManager.Instance.RegisterBuilding(truePos, this);
+            }
         }
-        // ---------------------------
 
         if (TickManager.Instance != null)
             TickManager.Instance.OnTick += HandleTickSystem;
@@ -48,14 +49,12 @@ public abstract class BuildingBase : MonoBehaviour
         if (internalVisual != null) Destroy(internalVisual.gameObject);
         if (incomingVisual != null) Destroy(incomingVisual.gameObject);
 
-        // Safety: If we are destroyed, free the grid cell
         if (CasinoGridManager.Instance != null && CasinoGridManager.Instance.GetBuildingAt(GridPosition) == this)
         {
             CasinoGridManager.Instance.RemoveBuilding(GridPosition);
         }
     }
 
-    // --- INITIALIZATION ---
     public virtual void Initialize(Vector2Int pos, int rot)
     {
         Setup(pos);
@@ -79,10 +78,10 @@ public abstract class BuildingBase : MonoBehaviour
         Vector2Int forwardDir = Vector2Int.zero;
         switch (RotationIndex)
         {
-            case 0: forwardDir = new Vector2Int(0, 1); break; // North
-            case 1: forwardDir = new Vector2Int(1, 0); break; // East
-            case 2: forwardDir = new Vector2Int(0, -1); break; // South
-            case 3: forwardDir = new Vector2Int(-1, 0); break; // West
+            case 0: forwardDir = new Vector2Int(0, 1); break;
+            case 1: forwardDir = new Vector2Int(1, 0); break;
+            case 2: forwardDir = new Vector2Int(0, -1); break;
+            case 3: forwardDir = new Vector2Int(-1, 0); break;
         }
         return GridPosition + forwardDir;
     }
@@ -91,10 +90,19 @@ public abstract class BuildingBase : MonoBehaviour
     {
         if (isGhost) return;
 
-        // 1. Process Logic
+        // --- GLOBAL SELF-HEALING FIX ---
+        // If we have Data, but the Visual Object is null (or was destroyed by physics/killplane)
+        // We MUST clear the data, otherwise the machine thinks it's full forever.
+        if (internalItem != null && internalVisual == null)
+        {
+            Debug.LogWarning($"<color=orange>[{name}]</color> Visual Object died unexpectedly! Clearing Ghost Data to unclog machine.");
+            internalItem = null;
+        }
+        // -------------------------------
+
         OnTick(tick);
 
-        // 2. Move Mailbox to Internal
+        // Move Mailbox to Internal
         if (incomingItem != null && internalItem == null)
         {
             internalItem = incomingItem;
@@ -102,8 +110,6 @@ public abstract class BuildingBase : MonoBehaviour
 
             incomingItem = null;
             incomingVisual = null;
-
-            if (showDebugLogs) GameLogger.Log($"[{name}] Processed Mailbox.");
 
             OnItemArrived();
         }
@@ -125,14 +131,33 @@ public abstract class BuildingBase : MonoBehaviour
     {
         if (isGhost) return false;
         if (incomingItem != null) return false;
+        if (internalItem != null) return false;
         return true;
     }
 
     public virtual void ReceiveItem(ItemPayload item, ItemVisualizer visual)
     {
+        // Safety: Reject if visual is missing
+        if (visual == null)
+        {
+            Debug.LogError($"[{name}] Attempted to receive item with NULL visual! Rejecting to prevent ghosts.");
+            return;
+        }
         incomingItem = item;
         incomingVisual = visual;
     }
 
     public virtual bool CanBePlacedAt(Vector2Int gridPos) => true;
+
+    [ContextMenu("Debug: Force Clear Inventory")]
+    public void ForceClearInventory()
+    {
+        internalItem = null;
+        incomingItem = null;
+        if (internalVisual != null) Destroy(internalVisual.gameObject);
+        if (incomingVisual != null) Destroy(incomingVisual.gameObject);
+        internalVisual = null;
+        incomingVisual = null;
+        Debug.Log($"<color=yellow>[{name}]</color> Inventory Cleared Forcefully.");
+    }
 }

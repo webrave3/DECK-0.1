@@ -9,7 +9,8 @@ public class ItemVisualizer : MonoBehaviour
 
     [Header("Settings")]
     public Vector3 baseScale = new Vector3(0.8f, 0.05f, 1.1f);
-    public float jumpHeight = 0.2f; // Height of the little hop
+
+    // Removed jumpHeight - we want smooth conveyor sliding!
 
     public ItemPayload cachedPayload;
 
@@ -30,13 +31,9 @@ public class ItemVisualizer : MonoBehaviour
 
         CardData topCard = item.contents[item.contents.Count - 1];
 
-        // 1. Apply Color
         if (meshRenderer != null)
-        {
             meshRenderer.material.color = topCard.GetDisplayColor();
-        }
 
-        // 2. Apply Text
         if (rankText != null)
         {
             if (topCard.suit == CardSuit.None)
@@ -47,8 +44,6 @@ public class ItemVisualizer : MonoBehaviour
             {
                 string rankStr = GetRankString(topCard.rank);
                 string suitStr = GetSuitSymbol(topCard.suit);
-
-                // Rich Text Coloring
                 string colorTag = (topCard.suit == CardSuit.Heart || topCard.suit == CardSuit.Diamond)
                     ? "<color=red>" : "<color=black>";
 
@@ -56,7 +51,7 @@ public class ItemVisualizer : MonoBehaviour
             }
         }
 
-        // 3. Force Card Shape (Fixes "Too Large/Cube" issues)
+        // Shape scaling
         if (item.contents.Count > 1)
         {
             float stackHeight = 1f + (item.contents.Count * 0.1f);
@@ -70,16 +65,17 @@ public class ItemVisualizer : MonoBehaviour
 
     public void InitializeMovement(Vector3 end, float duration)
     {
-        // We ignore 'duration' now and rely on TickManager for perfect sync
         startPos = transform.position;
         targetPos = end;
         isMoving = true;
         gameObject.SetActive(true);
 
-        // Snap rotation to look at destination
+        // Instant Rotation look-at for cleaner turns
         if (Vector3.Distance(startPos, targetPos) > 0.01f)
         {
-            transform.rotation = Quaternion.LookRotation(targetPos - startPos);
+            Vector3 dir = targetPos - startPos;
+            dir.y = 0; // Keep flat
+            if (dir != Vector3.zero) transform.rotation = Quaternion.LookRotation(dir);
         }
     }
 
@@ -87,51 +83,24 @@ public class ItemVisualizer : MonoBehaviour
     {
         if (!isMoving || TickManager.Instance == null) return;
 
-        // --- THE FIX ---
-        // Instead of calculating our own time, we ask the TickManager:
-        // "How far along are we in the current tick (0.0 to 1.0)?"
+        // Smooth Linear Interpolation (Sliding)
         float t = TickManager.Instance.GetInterpolationFactor();
 
-        // 1. Linear Move
+        // Use Lerp for smooth sliding. 
+        // No jumping, no arcs. Just slide.
         Vector3 currentPos = Vector3.Lerp(startPos, targetPos, t);
 
-        // 2. Add Arc/Hop (Parabola)
-        // Only hop if moving significant distance (e.g. between tiles)
-        if (Vector3.Distance(startPos, targetPos) > 0.5f)
-        {
-            float height = Mathf.Sin(t * Mathf.PI) * jumpHeight;
-            currentPos.y += height;
-        }
-
         transform.position = currentPos;
-
-        // Snap to finish if tick is done (factor loops back to 0, so we check near 1)
-        // Actually, with interpolation factor, we just let it ride. 
-        // When the next tick fires, InitializeMovement will be called again with new positions.
     }
 
     // --- Helpers ---
     string GetRankString(int rank)
     {
-        switch (rank)
-        {
-            case 11: return "J";
-            case 12: return "Q";
-            case 13: return "K";
-            case 14: return "A";
-            default: return rank.ToString();
-        }
+        switch (rank) { case 11: return "J"; case 12: return "Q"; case 13: return "K"; case 14: return "A"; default: return rank.ToString(); }
     }
 
     string GetSuitSymbol(CardSuit suit)
     {
-        switch (suit)
-        {
-            case CardSuit.Heart: return "♥";
-            case CardSuit.Diamond: return "♦";
-            case CardSuit.Club: return "♣";
-            case CardSuit.Spade: return "♠";
-            default: return "";
-        }
+        switch (suit) { case CardSuit.Heart: return "♥"; case CardSuit.Diamond: return "♦"; case CardSuit.Club: return "♣"; case CardSuit.Spade: return "♠"; default: return ""; }
     }
 }

@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 public class CasinoGridManager : MonoBehaviour
 {
@@ -8,6 +9,11 @@ public class CasinoGridManager : MonoBehaviour
     public int mapWidth = 100;
     public int mapHeight = 100;
     public float cellSize = 1f;
+
+    [Header("Alignment")]
+    [Tooltip("Drag your Ground/Floor Plane here. The grid will automatically align to its bottom-left corner.")]
+    public Transform floorPlane;
+    private Vector3 gridOrigin; // Calculated automatically
 
     [Header("Debug")]
     public bool sandboxMode = true;
@@ -21,7 +27,33 @@ public class CasinoGridManager : MonoBehaviour
         if (Instance != null && Instance != this) Destroy(this);
         else Instance = this;
 
+        RecalculateOrigin();
         InitializeGridData();
+    }
+
+    // --- NEW: Calculates Grid Origin from the Floor Plane ---
+    public void RecalculateOrigin()
+    {
+        if (floorPlane != null)
+        {
+            Renderer r = floorPlane.GetComponent<Renderer>();
+            if (r != null)
+            {
+                // bounds.min gives us the Bottom-Left-Back corner of the object
+                gridOrigin = r.bounds.min;
+                // Force Y to 0 just in case the plane is floating slightly
+                gridOrigin.y = 0;
+            }
+            else
+            {
+                // Fallback if no renderer (e.g. just a transform)
+                gridOrigin = floorPlane.position;
+            }
+        }
+        else
+        {
+            gridOrigin = Vector3.zero;
+        }
     }
 
     private void InitializeGridData()
@@ -32,7 +64,7 @@ public class CasinoGridManager : MonoBehaviour
         if (unlockedPlots == null || unlockedPlots.GetLength(0) != mapWidth)
         {
             unlockedPlots = new bool[mapWidth, mapHeight];
-            UnlockArea(45, 45, 10, 10); // Start zone
+            UnlockArea(0, 0, mapWidth, mapHeight); // Unlock everything for testing
         }
     }
 
@@ -62,7 +94,7 @@ public class CasinoGridManager : MonoBehaviour
         return grid[pos.x, pos.y] != null;
     }
 
-    public bool IsCellEmpty(Vector2Int pos) => !IsOccupied(pos); // Helper alias
+    public bool IsCellEmpty(Vector2Int pos) => !IsOccupied(pos);
 
     public bool IsBuildable(Vector2Int pos)
     {
@@ -74,19 +106,15 @@ public class CasinoGridManager : MonoBehaviour
     public void PlaceBuilding(BuildingBase building, Vector2Int pos)
     {
         if (!IsValidCoord(pos.x, pos.y)) return;
-
-        // Auto-remove old if overwriting (Safety net)
         if (grid[pos.x, pos.y] != null) RemoveBuilding(pos);
 
         grid[pos.x, pos.y] = building;
-        // Note: BuildingSystem calls Initialize(), which calls Setup(). 
-        // We call Setup here just in case it wasn't called externally.
         building.Setup(pos);
     }
 
     public void RegisterBuilding(Vector2Int pos, BuildingBase building)
     {
-        PlaceBuilding(building, pos); // Alias for compatibility
+        PlaceBuilding(building, pos);
     }
 
     public BuildingBase GetBuildingAt(Vector2Int pos)
@@ -119,34 +147,41 @@ public class CasinoGridManager : MonoBehaviour
         return resourceGrid[pos.x, pos.y];
     }
 
-    // --- CONVERSION ---
+    // --- CONVERSION (UPDATED) ---
 
     public Vector2Int WorldToGrid(Vector3 worldPos)
     {
-        return new Vector2Int(Mathf.FloorToInt(worldPos.x / cellSize), Mathf.FloorToInt(worldPos.z / cellSize));
+        // Subtract origin first to make calculations local to the grid start
+        Vector3 localPos = worldPos - gridOrigin;
+        return new Vector2Int(Mathf.FloorToInt(localPos.x / cellSize), Mathf.FloorToInt(localPos.z / cellSize));
     }
 
     public Vector3 GridToWorld(Vector2Int gridPos)
     {
-        return new Vector3(gridPos.x * cellSize + (cellSize / 2f), 0, gridPos.y * cellSize + (cellSize / 2f));
+        // Add origin back to get world space
+        float x = gridOrigin.x + (gridPos.x * cellSize) + (cellSize / 2f);
+        float z = gridOrigin.z + (gridPos.y * cellSize) + (cellSize / 2f);
+        return new Vector3(x, 0, z);
     }
 
     private void OnValidate() { if (!Application.isPlaying) InitializeGridData(); }
 
     private void OnDrawGizmos()
     {
-        if (unlockedPlots == null) return;
-        Gizmos.color = new Color(0, 1, 0, 0.3f);
-        for (int x = 0; x < mapWidth; x++)
-        {
-            for (int y = 0; y < mapHeight; y++)
-            {
-                if (x < unlockedPlots.GetLength(0) && y < unlockedPlots.GetLength(1) && unlockedPlots[x, y])
-                {
-                    Vector3 center = new Vector3(x * cellSize + (cellSize / 2f), 0.1f, y * cellSize + (cellSize / 2f));
-                    Gizmos.DrawWireCube(center, Vector3.one * cellSize * 0.9f);
-                }
-            }
-        }
+        // Visualise the grid so you can see if it matches your floor
+        if (floorPlane == null) return;
+
+        // Quick recalculate for editor view
+        RecalculateOrigin();
+
+        Gizmos.color = new Color(0, 1, 0, 0.2f);
+        // Draw outline of grid area
+        Vector3 size = new Vector3(mapWidth * cellSize, 0.1f, mapHeight * cellSize);
+        Vector3 center = gridOrigin + (size / 2f);
+        Gizmos.DrawWireCube(center, size);
+
+        // Draw Origin Tile
+        Gizmos.color = Color.red;
+        Gizmos.DrawWireCube(GridToWorld(Vector2Int.zero), new Vector3(cellSize, 0.1f, cellSize));
     }
 }

@@ -254,15 +254,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Unpacker
   Definition: {fileID: 11400000, guid: 5702dbedddbbe364a824b34149bccf12, type: 2}
-  showDebugLogs: 0
+  showDebugLogs: 1
+  isGhost: 0
   internalItem:
     contents:
     - uid: 
-      rank: 2
-      suit: 1
+      rank: 3
+      suit: 2
       material: 0
       ink: 0
     velocityBonus: 1
     valueMultiplier: 1
   productionSpeed: 5
   outputAnchor: {fileID: 0}
+  outputDirectionOffset: 0
+  lastStatus: Initializing
