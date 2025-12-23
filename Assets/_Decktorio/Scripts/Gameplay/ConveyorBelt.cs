@@ -1,10 +1,10 @@
 using UnityEngine;
+using System.Collections.Generic;
 
-public class ConveyorBelt : BuildingBase
+public class ConveyorBelt : BuildingBase, IConfigurable
 {
     [Header("Visuals")]
     public float itemHeightOffset = 0.2f;
-    // FIXED: 0.40 leaves a 0.10 gap from the edge (0.50), creating padding.
     public float forwardVisualOffset = 1.0f;
     public float speedModifier = 1.0f;
 
@@ -15,7 +15,6 @@ public class ConveyorBelt : BuildingBase
     protected override void Start()
     {
         base.Start();
-        // Safety Register
         if (CasinoGridManager.Instance != null)
         {
             Vector2Int truePos = CasinoGridManager.Instance.WorldToGrid(transform.position);
@@ -59,12 +58,7 @@ public class ConveyorBelt : BuildingBase
         if (internalItem != null)
         {
             TryPushItem();
-
-            // Queue Logic: If blocked, ensure visual sits at the edge
-            if (internalItem != null && internalVisual != null)
-            {
-                MoveVisualToEdge();
-            }
+            if (internalItem != null && internalVisual != null) MoveVisualToEdge();
         }
     }
 
@@ -86,8 +80,6 @@ public class ConveyorBelt : BuildingBase
     {
         Vector3 worldForward = (CasinoGridManager.Instance.GridToWorld(GetForwardGridPosition()) - transform.position).normalized;
         Vector3 edgePos = transform.position + (Vector3.up * itemHeightOffset) + (worldForward * forwardVisualOffset);
-
-        // Pass duration based on tickrate for smooth visual queueing
         float duration = TickManager.Instance != null ? TickManager.Instance.tickRate : 0.5f;
         internalVisual.InitializeMovement(edgePos, duration);
     }
@@ -104,12 +96,10 @@ public class ConveyorBelt : BuildingBase
         if (internalVisual != null)
         {
             internalVisual.transform.SetParent(this.transform);
-            // Immediately start moving to queue position
             MoveVisualToEdge();
         }
     }
 
-    // Direction Helpers
     public Vector2Int GetLeftGridPosition() => GridPosition + GetDirFromIndex((RotationIndex + 3) % 4);
     public Vector2Int GetRightGridPosition() => GridPosition + GetDirFromIndex((RotationIndex + 1) % 4);
     public Vector2Int GetBackGridPosition() => GridPosition + GetDirFromIndex((RotationIndex + 2) % 4);
@@ -119,12 +109,12 @@ public class ConveyorBelt : BuildingBase
         return Vector2Int.zero;
     }
 
-    private void OnDrawGizmos()
-    {
-        if (internalItem != null && internalVisual == null)
-        {
-            Gizmos.color = Color.red;
-            Gizmos.DrawWireSphere(transform.position + Vector3.up, 0.5f);
-        }
-    }
+    // --- IConfigurable ---
+
+    public string GetInspectorTitle() => "Belt";
+    public string GetInspectorStatus() => internalItem != null ? $"Moving: {internalItem.GetDebugLabel()}" : "Empty";
+    public List<BuildingSetting> GetSettings() => null;
+    public void OnSettingChanged(string settingId, int newValue) { }
+    public Dictionary<string, int> GetConfigurationState() => null;
+    public void SetConfigurationState(Dictionary<string, int> state) { }
 }

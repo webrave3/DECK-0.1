@@ -1,27 +1,23 @@
 using UnityEngine;
+using System.Collections.Generic;
 
-public class Merger : BuildingBase
+public class Merger : BuildingBase, IConfigurable
 {
     // Round-Robin logic to act fairly
     private int inputIndex = 0;
 
     protected override void OnTick(int tick)
     {
-        // 1. Output Logic: If we hold an item, try to push it out forward
         if (internalItem != null)
         {
             TryPushForward();
             return;
         }
-
-        // 2. Input Logic: If empty, try to pull from neighbors
         TryPullInputs();
     }
 
     private void TryPullInputs()
     {
-        // We check 3 sides: Left, Back, Right (relative to rotation)
-        // We cycle through them so one side doesn't starve the others.
         for (int i = 0; i < 3; i++)
         {
             int checkIndex = (inputIndex + i) % 3;
@@ -36,7 +32,6 @@ public class Merger : BuildingBase
 
             if (AttemptPullFrom(checkPos))
             {
-                // Success! Advance index for fairness next time
                 inputIndex = (inputIndex + 1) % 3;
                 return;
             }
@@ -45,27 +40,17 @@ public class Merger : BuildingBase
 
     private bool AttemptPullFrom(Vector2Int sourcePos)
     {
-        BuildingBase source = CasinoGridManager.Instance.GetBuildingAt(sourcePos);
-
-        // Custom check: We want to pull from a ConveyorBelt or similar that is trying to push to us.
-        // Usually belts push proactively. But the Merger can also act as a "Join" spot.
-        // Ideally, belts pointing AT the merger will push INTO it via ReceiveItem.
-        // So this script might not even need to "Pull". 
-        // Standard Factory game logic: Mergers rely on belts pushing into them.
-        // However, to ensure it acts as a merger, we accept items from 3 sides.
+        // Mergers are generally passive in this system, relying on belts pushing IN.
+        // This is a placeholder for future active pulling logic.
         return false;
     }
 
-    // IMPORTANT: The Merger acts passively. It accepts items from 3 directions.
     public override bool CanAcceptItem(Vector2Int fromPos)
     {
         if (internalItem != null || incomingItem != null) return false;
-
-        // Accept from Back, Left, Right
         if (fromPos == GetBackGridPosition()) return true;
         if (fromPos == GetLeftGridPosition()) return true;
         if (fromPos == GetRightGridPosition()) return true;
-
         return false;
     }
 
@@ -82,7 +67,6 @@ public class Merger : BuildingBase
         }
     }
 
-    // Helpers
     public Vector2Int GetLeftGridPosition() => GridPosition + GetDirFromIndex((RotationIndex + 3) % 4);
     public Vector2Int GetRightGridPosition() => GridPosition + GetDirFromIndex((RotationIndex + 1) % 4);
     public Vector2Int GetBackGridPosition() => GridPosition + GetDirFromIndex((RotationIndex + 2) % 4);
@@ -98,4 +82,13 @@ public class Merger : BuildingBase
         }
         return Vector2Int.zero;
     }
+
+    // --- IConfigurable ---
+
+    public string GetInspectorTitle() => "Merger";
+    public string GetInspectorStatus() => "Status: Active\nMerges 3 inputs to 1 output.";
+    public List<BuildingSetting> GetSettings() => null; // No settings yet
+    public void OnSettingChanged(string settingId, int newValue) { }
+    public Dictionary<string, int> GetConfigurationState() => null;
+    public void SetConfigurationState(Dictionary<string, int> state) { }
 }

@@ -1,6 +1,7 @@
 using UnityEngine;
+using System.Collections.Generic;
 
-public class DeckDispenser : BuildingBase
+public class DeckDispenser : BuildingBase, IConfigurable
 {
     [Header("Visual Settings")]
     public GameObject itemPrefab;
@@ -58,6 +59,7 @@ public class DeckDispenser : BuildingBase
     public override bool CanBePlacedAt(Vector2Int gridPos)
     {
         // Only allow placement if there is a Resource (SupplyDrop) at this position
+        if (CasinoGridManager.Instance == null) return true;
         return CasinoGridManager.Instance.GetResourceAt(gridPos) != null;
     }
 
@@ -122,5 +124,69 @@ public class DeckDispenser : BuildingBase
         Gizmos.color = Color.yellow;
         Gizmos.DrawLine(start, end);
         Gizmos.DrawSphere(end, 0.2f);
+    }
+
+    // --- IConfigurable Implementation ---
+
+    public string GetInspectorTitle() => "Deck Dispenser";
+
+    public string GetInspectorStatus() => lastStatus;
+
+    public List<BuildingSetting> GetSettings()
+    {
+        List<BuildingSetting> settings = new List<BuildingSetting>();
+
+        // 1. Output Suit
+        settings.Add(new BuildingSetting
+        {
+            settingId = "suit",
+            displayName = "Card Suit",
+            options = new List<string> { "Hearts", "Diamonds", "Clubs", "Spades" },
+            currentIndex = Mathf.Clamp((int)outputSuit - 1, 0, 3)
+        });
+
+        // 2. Output Rank
+        List<string> ranks = new List<string>();
+        for (int i = 1; i <= 13; i++) ranks.Add(GetRankName(i));
+
+        settings.Add(new BuildingSetting
+        {
+            settingId = "rank",
+            displayName = "Card Rank",
+            options = ranks,
+            currentIndex = Mathf.Clamp(outputRank - 1, 0, 12)
+        });
+
+        return settings;
+    }
+
+    public void OnSettingChanged(string settingId, int newValue)
+    {
+        if (settingId == "suit") outputSuit = (CardSuit)(newValue + 1);
+        else if (settingId == "rank") outputRank = newValue + 1;
+    }
+
+    public Dictionary<string, int> GetConfigurationState()
+    {
+        return new Dictionary<string, int>
+        {
+            { "suit", (int)outputSuit },
+            { "rank", outputRank - 1 }
+        };
+    }
+
+    public void SetConfigurationState(Dictionary<string, int> state)
+    {
+        if (state.ContainsKey("suit")) outputSuit = (CardSuit)state["suit"];
+        if (state.ContainsKey("rank")) outputRank = state["rank"] + 1;
+    }
+
+    private string GetRankName(int r)
+    {
+        if (r == 1) return "Ace";
+        if (r == 11) return "Jack";
+        if (r == 12) return "Queen";
+        if (r == 13) return "King";
+        return r.ToString();
     }
 }

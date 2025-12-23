@@ -1,10 +1,13 @@
 using UnityEngine;
+using System.Collections.Generic;
 
-public class SinkBuilding : BuildingBase
+public class SinkBuilding : BuildingBase, IConfigurable
 {
     [Header("Sink Settings")]
     public bool isIncinerator = false;
     public float sellMultiplier = 1.0f;
+
+    private string lastProcessInfo = "Idle";
 
     protected override void OnTick(int tick)
     {
@@ -13,7 +16,6 @@ public class SinkBuilding : BuildingBase
 
     protected override void OnItemArrived()
     {
-        // Use internalItem (ItemPayload)
         if (internalItem != null)
         {
             ProcessItem(internalItem);
@@ -28,26 +30,72 @@ public class SinkBuilding : BuildingBase
     {
         if (isIncinerator) return;
 
-        // 1. Evaluate the Stack
+        // 1. Evaluate
         PokerHandType handType = PokerEvaluator.Evaluate(item.contents);
 
         // 2. Base Value
         int baseValue = PokerEvaluator.GetHandValue(handType);
 
-        // 3. Apply Multipliers (Velocity * Stack Bonuses)
-        float totalValue = baseValue * item.velocityBonus * item.valueMultiplier;
+        // 3. MARKET LOGIC
+        float marketMult = 1.0f;
+        if (MarketManager.Instance != null)
+        {
+            marketMult = MarketManager.Instance.GetMultiplier(handType);
+            MarketManager.Instance.RegisterSale(handType);
+        }
 
-        int finalPayout = Mathf.RoundToInt(totalValue * sellMultiplier);
+        // 4. Calculate Final Payout (FLOAT PRECISION)
+        float totalValue = baseValue * item.velocityBonus * item.valueMultiplier * marketMult;
 
-        // 4. Pay (UPDATED FOR DEBT ECONOMY)
-        GameLogger.Log($"[Sink] Sold {handType} ({item.contents.Count} cards) for ${finalPayout}");
+        // Apply the Sell Multiplier (if upgrades exist)
+        float finalPayout = totalValue * sellMultiplier;
+
+        // 5. Pay
+        string marketMsg = marketMult < 1.0f ? $" (Sat: {marketMult:P0})" : "";
+
+        // Log with 2 decimals (F2)
+        GameLogger.Log($"[Sink] Sold {handType}{marketMsg} for ${finalPayout:F2}");
 
         if (EconomyManager.Instance != null)
         {
-            // FIX: Changed 'ProcessPayout' to 'EarnMoney' to match EconomyManager
             EconomyManager.Instance.EarnMoney(finalPayout);
         }
     }
 
     public override bool CanAcceptItem(Vector2Int fromPos) => internalItem == null && incomingItem == null;
+
+    // --- IConfigurable Implementation ---
+
+    public string GetInspectorTitle() => isIncinerator ? "Incinerator" : "Sales Terminal";
+
+    public string GetInspectorStatus() => lastProcessInfo;
+
+    public List<BuildingSetting> GetSettings()
+    {
+        return new List<BuildingSetting>
+        {
+            new BuildingSetting
+            {
+                settingId = "mode",
+                displayName = "Operation Mode",
+                options = new List<string> { "Sell Items", "Incinerate (Trash)" },
+                currentIndex = isIncinerator ? 1 : 0
+            }
+        };
+    }
+
+    public void OnSettingChanged(string settingId, int newValue)
+    {
+        if (settingId == "mode") isIncinerator = (newValue == 1);
+    }
+
+    public Dictionary<string, int> GetConfigurationState()
+    {
+        return new Dictionary<string, int> { { "mode", isIncinerator ? 1 : 0 } };
+    }
+
+    public void SetConfigurationState(Dictionary<string, int> state)
+    {
+        if (state.ContainsKey("mode")) isIncinerator = (state["mode"] == 1);
+    }
 }

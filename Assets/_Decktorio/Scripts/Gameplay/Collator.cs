@@ -1,7 +1,7 @@
 using UnityEngine;
 using System.Collections.Generic;
 
-public class Collator : BuildingBase
+public class Collator : BuildingBase, IConfigurable
 {
     [Header("Settings")]
     public int maxCapacity = 5;
@@ -32,8 +32,7 @@ public class Collator : BuildingBase
         // 2. Processing Logic
         if (isProcessing)
         {
-            timer += TickManager.Instance.tickRate; // Use delta time if you want smooth time
-            // Or use Time.deltaTime if logic is frame-based
+            timer += TickManager.Instance.tickRate;
             if (timer >= processTime)
             {
                 FinishCollating();
@@ -112,8 +111,7 @@ public class Collator : BuildingBase
         }
         else
         {
-            // Fallback if user forgot prefab
-            Debug.LogError("[Collator] Missing StackVisualPrefab! Create a Cube and assign it.");
+            Debug.LogError("[Collator] Missing StackVisualPrefab!");
         }
 
         isProcessing = false;
@@ -128,5 +126,46 @@ public class Collator : BuildingBase
             outputProduct = null;
             outputVisual = null;
         }
+    }
+
+    // --- IConfigurable Implementation ---
+
+    public string GetInspectorTitle() => "Collator";
+
+    public string GetInspectorStatus()
+    {
+        string s = $"Buffer: {buffer.Count} / {maxCapacity}";
+        if (isProcessing) s += " (Packing...)";
+        else if (outputProduct != null) s += " (Output Ready)";
+        return s;
+    }
+
+    public List<BuildingSetting> GetSettings()
+    {
+        return new List<BuildingSetting>
+        {
+            new BuildingSetting
+            {
+                settingId = "smartEject",
+                displayName = "Smart Eject",
+                options = new List<string> { "Off (Wait Full)", "On (Detect Hands)" },
+                currentIndex = smartEject ? 1 : 0
+            }
+        };
+    }
+
+    public void OnSettingChanged(string settingId, int newValue)
+    {
+        if (settingId == "smartEject") smartEject = (newValue == 1);
+    }
+
+    public Dictionary<string, int> GetConfigurationState()
+    {
+        return new Dictionary<string, int> { { "smartEject", smartEject ? 1 : 0 } };
+    }
+
+    public void SetConfigurationState(Dictionary<string, int> state)
+    {
+        if (state.ContainsKey("smartEject")) smartEject = (state["smartEject"] == 1);
     }
 }
