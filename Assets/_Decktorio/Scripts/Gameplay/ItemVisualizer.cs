@@ -8,7 +8,6 @@ public class ItemVisualizer : MonoBehaviour
     public TextMeshPro rankText;
 
     [Header("Settings")]
-    // FIXED: Smaller scale for proper belt margins (Padding)
     public Vector3 baseScale = new Vector3(0.4f, 0.03f, 0.5f);
 
     public ItemPayload cachedPayload;
@@ -22,17 +21,11 @@ public class ItemVisualizer : MonoBehaviour
     {
         if (meshRenderer == null) meshRenderer = GetComponentInChildren<MeshRenderer>();
 
-        // --- PHYSICS SAFETY LOCK ---
-        // Prevents cards from falling through the floor (fixing the Unpacker bug)
+        // Physics Safety
         Rigidbody rb = GetComponent<Rigidbody>();
-        if (rb != null)
-        {
-            rb.useGravity = false;
-            rb.isKinematic = true;
-        }
+        if (rb != null) { rb.useGravity = false; rb.isKinematic = true; }
         Collider col = GetComponent<Collider>();
         if (col != null) col.enabled = false;
-        // ---------------------------
     }
 
     public void SetVisuals(ItemPayload item)
@@ -51,7 +44,8 @@ public class ItemVisualizer : MonoBehaviour
         // 2. Apply Legible Text
         if (rankText != null)
         {
-            if (topCard.suit == CardSuit.None)
+            // Update: Check for "Empty" suit (0)
+            if (topCard.suit == 0)
             {
                 rankText.text = "";
             }
@@ -60,7 +54,6 @@ public class ItemVisualizer : MonoBehaviour
                 string rankStr = GetRankString(topCard.rank);
                 string suitStr = GetSuitSymbol(topCard.suit);
 
-                // FIX: Get high-contrast text color (White on Black/Red, Black on Gold/White)
                 Color txtColor = topCard.GetContrastingTextColor();
                 string hexColor = "#" + ColorUtility.ToHtmlStringRGBA(txtColor);
 
@@ -83,11 +76,9 @@ public class ItemVisualizer : MonoBehaviour
     public void InitializeMovement(Vector3 endPos, float duration)
     {
         targetPos = endPos;
-
-        // Calculate constant speed
         float distance = Vector3.Distance(transform.position, endPos);
         if (duration > 0 && distance > 0) moveSpeed = distance / duration;
-        else moveSpeed = 50f; // Fast snap if 0 duration
+        else moveSpeed = 50f;
 
         isMoving = true;
         gameObject.SetActive(true);
@@ -97,10 +88,8 @@ public class ItemVisualizer : MonoBehaviour
     {
         if (!isMoving) return;
 
-        // 1. Move Linear (Smooth Slide)
         transform.position = Vector3.MoveTowards(transform.position, targetPos, moveSpeed * Time.deltaTime);
 
-        // 2. Rotate Snappy (Fixes diagonal floating issues)
         if (Vector3.Distance(transform.position, targetPos) > 0.01f)
         {
             Vector3 dir = targetPos - transform.position;
@@ -108,12 +97,10 @@ public class ItemVisualizer : MonoBehaviour
             if (dir != Vector3.zero)
             {
                 Quaternion targetRot = Quaternion.LookRotation(dir);
-                // Fast rotation (720 deg/s) looks snappy and responsive
                 transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRot, 720f * Time.deltaTime);
             }
         }
 
-        // 3. Stop check
         if (Vector3.Distance(transform.position, targetPos) < 0.001f)
         {
             isMoving = false;
@@ -121,13 +108,36 @@ public class ItemVisualizer : MonoBehaviour
     }
 
     // --- Helpers ---
-    string GetRankString(int rank)
+
+    // UPDATED: Now accepts float
+    string GetRankString(float rank)
     {
-        switch (rank) { case 11: return "J"; case 12: return "Q"; case 13: return "K"; case 14: return "A"; default: return rank.ToString(); }
+        // If it's a whole number, treat it like a classic card
+        if (Mathf.Approximately(rank % 1, 0))
+        {
+            int r = Mathf.RoundToInt(rank);
+            switch (r)
+            {
+                case 11: return "J";
+                case 12: return "Q";
+                case 13: return "K";
+                case 14: return "A";
+                default: return r.ToString();
+            }
+        }
+        // Otherwise show the float (e.g. "3.5")
+        return rank.ToString("0.0");
     }
 
     string GetSuitSymbol(CardSuit suit)
     {
-        switch (suit) { case CardSuit.Heart: return "♥"; case CardSuit.Diamond: return "♦"; case CardSuit.Club: return "♣"; case CardSuit.Spade: return "♠"; default: return ""; }
+        // Handle Composite Suits (e.g. Heart + Spade)
+        string s = "";
+        if (suit.HasFlag(CardSuit.Heart)) s += "♥";
+        if (suit.HasFlag(CardSuit.Diamond)) s += "♦";
+        if (suit.HasFlag(CardSuit.Club)) s += "♣";
+        if (suit.HasFlag(CardSuit.Spade)) s += "♠";
+        if (suit.HasFlag(CardSuit.Gear)) s += "⚙";
+        return s;
     }
 }
